@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import chromadb
-from chromadb import Collection
+from chromadb import Collection, ClientAPI
 from chromadb.config import Settings as ChromaSettings
 
 from app.core.config import get_settings
@@ -9,10 +11,10 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-_client: chromadb.PersistentClient | None = None
+_client: ClientAPI | None = None
 
 
-def get_chroma_client() -> chromadb.PersistentClient:
+def get_chroma_client() -> ClientAPI:
     global _client
 
     if _client is None:

@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocMind — Document Intelligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ─── Design Tokens ─────────────────────────────────────────── */
+  :root {
+    --bg:           #0c0d0f;
+    --surface:      #13151a;
+    --surface-2:    #1a1d24;
+    --border:       #272b35;
+    --border-light: #313642;
+    --accent:       #c8f135;
+    --accent-dim:   #a8cc25;
+    --accent-glow:  rgba(200, 241, 53, 0.08);
+    --text:         #e8eaf0;
+    --text-muted:   #7a8099;
+    --text-dim:     #4a5068;
+    --red:          #ff5f5f;
+    --blue:         #5b9cf6;
+    --radius:       10px;
+    --radius-lg:    16px;
+  }
+
+  /* ─── Reset & Base ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* ─── Layout ────────────────────────────────────────────────── */
+  .app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: 64px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ─── Header ────────────────────────────────────────────────── */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(12, 13, 15, 0.8);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .status-dot.offline { background: var(--red); box-shadow: 0 0 8px var(--red); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .demo-badge {
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(200, 241, 53, 0.1);
+    border: 1px solid rgba(200, 241, 53, 0.25);
+    color: var(--accent);
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    display: none;
+  }
+
+  .demo-badge.visible { display: block; }
+
+  /* ─── Sidebar ───────────────────────────────────────────────── */
+  aside {
+    border-right: 1px solid var(--border);
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    background: var(--surface);
+  }
+
+  .sidebar-section h3 {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 1.5px dashed var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  .drop-icon {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .drop-zone p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .drop-zone strong {
+    display: block;
+    color: var(--text);
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+  }
+
+  /* Upload button */
+  .btn {
+    width: 100%;
+    padding: 11px 20px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.87rem;
+    font-weight: 600;
+    transition: all 0.18s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0c0d0f;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-dim);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(200, 241, 53, 0.2);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Document list */
+  .doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .doc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    font-size: 0.82rem;
+    animation: slideIn 0.25s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .doc-icon { font-size: 1rem; flex-shrink: 0; }
+
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-name {
+    color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 500;
+    font-size: 0.8rem;
+  }
+  .doc-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.67rem;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  .doc-status {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+  }
+
+  .doc-status.ready { background: rgba(200,241,53,0.12); color: var(--accent); }
+  .doc-status.loading { background: rgba(91,156,246,0.12); color: var(--blue); }
+  .doc-status.error { background: rgba(255,95,95,0.12); color: var(--red); }
+
+  .empty-state {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ─── Main Content ──────────────────────────────────────────── */
+  main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Chat messages area */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scroll-behavior: smooth;
+  }
+
+  /* Welcome screen */
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    gap: 16px;
+    padding: 40px;
+    animation: fadeUp 0.6s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .welcome-icon {
+    font-size: 3rem;
+    margin-bottom: 8px;
+  }
+
+  .welcome h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+
+  .welcome h1 em {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .welcome p {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    max-width: 420px;
+    line-height: 1.7;
+  }
+
+  .suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .chip {
+    padding: 8px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border-light);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  /* Message bubbles */
+  .message {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeUp 0.3s ease;
+    max-width: 820px;
+  }
+
+  .message.user { align-items: flex-end; align-self: flex-end; }
+  .message.assistant { align-self: flex-start; }
+
+  .msg-bubble {
+    padding: 14px 18px;
+    border-radius: var(--radius-lg);
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+
+  .message.user .msg-bubble {
+    background: var(--accent);
+    color: #0c0d0f;
+    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    font-weight: 500;
+  }
+
+  .message.assistant .msg-bubble {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    color: var(--text);
+  }
+
+  .msg-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    padding: 0 4px;
+  }
+
+  /* Citations */
+  .citations {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .citations-header {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.67rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  .citation-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .citation-card:hover {
+    border-left-color: var(--accent-dim);
+    background: var(--surface-2);
+  }
+
+  .citation-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+
+  .citation-file {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .citation-page {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  .citation-score {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--text-dim);
+  }
+
+  .citation-snippet {
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-size: 0.77rem;
+  }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    animation: typingBounce 1.2s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* ─── Query Input ───────────────────────────────────────────── */
+  .query-bar {
+    padding: 20px 32px;
+    border-top: 1px solid var(--border);
+    background: rgba(12,13,15,0.6);
+    backdrop-filter: blur(12px);
+  }
+
+  .query-form {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .query-input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .query-input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 13px 18px;
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.9rem;
+    resize: none;
+    outline: none;
+    transition: border-color 0.18s ease;
+    min-height: 50px;
+    max-height: 120px;
+    line-height: 1.5;
+  }
+
+  .query-input::placeholder { color: var(--text-dim); }
+  .query-input:focus { border-color: var(--accent); }
+
+  .send-btn {
+    width: 50px; height: 50px;
+    border-radius: var(--radius);
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    transition: all 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover { background: var(--accent-dim); transform: scale(1.05); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ─── Toast ─────────────────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    font-size: 0.83rem;
+    font-family: 'DM Mono', monospace;
+    z-index: 999;
+    animation: toastIn 0.3s ease;
+    max-width: 340px;
+  }
+
+  .toast.success {
+    background: rgba(200,241,53,0.15);
+    border: 1px solid rgba(200,241,53,0.3);
+    color: var(--accent);
+  }
+
+  .toast.error {
+    background: rgba(255,95,95,0.12);
+    border: 1px solid rgba(255,95,95,0.25);
+    color: var(--red);
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Scrollbar ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ─── Header ──────────────────────────────────────────────── -->
+  <header>
+    <a class="logo" href="#">
+      <div class="logo-icon">⬡</div>
+      DocMind
+    </a>
+    <div class="header-meta">
+      <span class="demo-badge" id="demoBadge">DEMO MODE</span>
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">connecting...</span>
+    </div>
+  </header>
+
+  <!-- ─── Sidebar ─────────────────────────────────────────────── -->
+  <aside>
+    <!-- Upload -->
+    <div class="sidebar-section">
+      <h3>Documents</h3>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf" multiple>
+        <span class="drop-icon">📄</span>
+        <strong>Drop PDFs here</strong>
+        <p>or click to browse<br><small style="color:var(--text-dim)">Max 50MB per file</small></p>
+      </div>
+      <br>
+      <button class="btn btn-primary" id="uploadBtn" disabled>
+        <span>↑</span> Upload & Index
+      </button>
+    </div>
+
+    <!-- Doc list -->
+    <div class="sidebar-section">
+      <h3>Indexed</h3>
+      <div class="doc-list" id="docList">
+        <div class="empty-state">No documents yet</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="sidebar-section" style="margin-top:auto">
+      <h3>Stats</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="statDocs">0</span>
+          <span class="stat-label">Docs</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="statChunks">0</span>
+          <span class="stat-label">Chunks</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── Main ────────────────────────────────────────────────── -->
+  <main>
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🔍</div>
+        <h1>Ask your <em>documents</em></h1>
+        <p>Upload PDFs and ask questions in natural language. Answers are grounded in your documents with exact page citations.</p>
+        <div class="suggestion-chips">
+          <div class="chip" onclick="useChip(this)">Summarize the key findings</div>
+          <div class="chip" onclick="useChip(this)">What are the main risks?</div>
+          <div class="chip" onclick="useChip(this)">List the key obligations</div>
+          <div class="chip" onclick="useChip(this)">What does this say about pricing?</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="query-bar">
+      <div class="query-form">
+        <div class="query-input-wrap">
+          <textarea
+            class="query-input"
+            id="queryInput"
+            placeholder="Ask a question about your documents..."
+            rows="1"
+          ></textarea>
+        </div>
+        <button class="send-btn" id="sendBtn">➤</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ─── Config ────────────────────────────────────────────────────────────────
+const API_BASE = 'http://localhost:8000/api/v1';
+let isDemo = false;
+let pendingFiles = [];
+let documents = [];   // { id, filename, chunks, pages }
+let totalChunks = 0;
+
+// ─── Demo Mode Data ─────────────────────────────────────────────────────────
+const DEMO_DOCS = [
+  { id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', chunks: 142, pages: 18 },
+  { id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', chunks: 87, pages: 11 },
+  { id: 'doc_demo003', filename: 'Partnership_Agreement.pdf', chunks: 203, pages: 26 },
+];
+
+const DEMO_QA = {
+  default: {
+    answer: "Based on the ingested documents, I found several relevant sections addressing your question. The documents indicate that the key considerations involve strategic alignment, resource allocation, and risk management frameworks outlined across multiple sections.",
+    sources: [
+      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 7, snippet: 'Revenue grew 34% year-over-year, driven by enterprise contract expansions and new market penetration in Southeast Asia. Operating margins improved to 23.4% from 18.1% in the prior period.', relevance_score: 0.0312 },
+      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 3, snippet: 'Phase 2 deployment targets Q3 2026, contingent on successful completion of the security audit and regulatory approval in target jurisdictions. Resource requirements estimated at 4 FTE for 6 months.', relevance_score: 0.0287 },
+    ]
+  },
+  summary: {
+    answer: "The documents collectively cover three main areas: financial performance (Q4 showing strong growth with 34% YoY revenue increase), product strategy (roadmap through 2026 with phased rollouts), and contractual obligations (partnership agreement detailing revenue share, exclusivity clauses, and SLA commitments). Key risks identified include regulatory uncertainty in new markets and dependency on third-party infrastructure providers.",
+    sources: [
+      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 2, snippet: 'Executive summary: Fiscal Q4 marked a transformative quarter with record revenue of $12.4M, driven by enterprise expansion and successful market entry into three new verticals.', relevance_score: 0.0341 },
+      { document_id: 'doc_demo003', filename: 'Partnership_Agreement.pdf', page: 1, snippet: 'This agreement establishes the terms of collaboration between the parties, including revenue sharing (70/30 split), intellectual property rights, and a 24-month exclusivity clause for the defined territory.', relevance_score: 0.0298 },
+      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 8, snippet: 'Risk factors: third-party API dependency represents a critical path risk. Mitigation plan includes vendor diversification by Q2 2026 and fallback architecture design by end of Q1.', relevance_score: 0.0255 },
+    ]
+  }
+};
+
+// ─── API Health Check ──────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const res = await fetch(`${API_BASE.replace('/api/v1', '')}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      setStatus(true);
+      await loadCollectionStatus();
+      return;
+    }
+  } catch {}
+  // Backend unreachable — activate demo mode
+  activateDemoMode();
+}
+
+function setStatus(online) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  dot.className = `status-dot ${online ? '' : 'offline'}`;
+  txt.textContent = online ? 'connected' : 'demo mode';
+}
+
+async function loadCollectionStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/ingest/status`);
+    const data = await res.json();
+    totalChunks = data.total_chunks || 0;
+    document.getElementById('statChunks').textContent = totalChunks;
+  } catch {}
+}
+
+function activateDemoMode() {
+  isDemo = true;
+  setStatus(false);
+  document.getElementById('demoBadge').classList.add('visible');
+
+  // Load demo documents
+  documents = DEMO_DOCS;
+  totalChunks = DEMO_DOCS.reduce((sum, d) => sum + d.chunks, 0);
+  renderDocList();
+  document.getElementById('statChunks').textContent = totalChunks;
+  document.getElementById('statDocs').textContent = documents.length;
+}
+
+// ─── File Handling ─────────────────────────────────────────────────────────
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const uploadBtn = document.getElementById('uploadBtn');
+
+fileInput.addEventListener('change', e => {
+  pendingFiles = Array.from(e.target.files);
+  updateUploadBtn();
+});
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  pendingFiles = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+  fileInput.files = e.dataTransfer.files;
+  updateUploadBtn();
+});
+
+function updateUploadBtn() {
+  uploadBtn.disabled = pendingFiles.length === 0;
+  uploadBtn.textContent = pendingFiles.length > 0
+    ? `↑ Upload ${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''}`
+    : '↑ Upload & Index';
+}
+
+uploadBtn.addEventListener('click', handleUpload);
+
+async function handleUpload() {
+  if (pendingFiles.length === 0) return;
+
+  if (isDemo) {
+    // Simulate upload in demo mode
+    for (const file of pendingFiles) {
+      const fakeDoc = {
+        id: `doc_${Math.random().toString(36).slice(2, 10)}`,
+        filename: file.name,
+        chunks: Math.floor(Math.random() * 80) + 40,
+        pages: Math.floor(Math.random() * 12) + 5,
+      };
+      documents.push(fakeDoc);
+      totalChunks += fakeDoc.chunks;
+    }
+    pendingFiles = [];
+    fileInput.value = '';
+    updateUploadBtn();
+    renderDocList();
+    document.getElementById('statDocs').textContent = documents.length;
+    document.getElementById('statChunks').textContent = totalChunks;
+    showToast(`Indexed ${documents.length} document${documents.length > 1 ? 's' : ''} (demo)`, 'success');
+    return;
+  }
+
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Indexing...';
+
+  const formData = new FormData();
+  pendingFiles.forEach(f => formData.append('files', f));
+
+  try {
+    const res = await fetch(`${API_BASE}/ingest/`, { method: 'POST', body: formData });
+    const results = await res.json();
+
+    if (!res.ok) throw new Error(results.detail || 'Upload failed');
+
+    for (const r of results) {
+      documents.push({ id: r.document_id, filename: r.filename, chunks: r.chunk_created, pages: r.pages_processed });
+      totalChunks += r.chunks_created;
+    }
+
+    renderDocList();
+    document.getElementById('statDocs').textContent = documents.length;
+    document.getElementById('statChunks').textContent = totalChunks;
+    showToast(`Indexed ${results.length} document${results.length > 1 ? 's' : ''}`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    pendingFiles = [];
+    fileInput.value = '';
+    updateUploadBtn();
+  }
+}
+
+function renderDocList() {
+  const list = document.getElementById('docList');
+  if (documents.length === 0) {
+    list.innerHTML = '<div class="empty-state">No documents yet</div>';
+    return;
+  }
+  list.innerHTML = documents.map(doc => `
+    <div class="doc-item">
+      <span class="doc-icon">📄</span>
+      <div class="doc-info">
+        <div class="doc-name" title="${doc.filename}">${doc.filename}</div>
+        <div class="doc-meta">${doc.chunks} chunks · ${doc.pages}p</div>
+      </div>
+      <span class="doc-status ready">ready</span>
+    </div>
+  `).join('');
+}
+
+// ─── Query ─────────────────────────────────────────────────────────────────
+const queryInput = document.getElementById('queryInput');
+const sendBtn = document.getElementById('sendBtn');
+const messagesEl = document.getElementById('messages');
+
+queryInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+});
+
+// Auto-resize textarea
+queryInput.addEventListener('input', () => {
+  queryInput.style.height = 'auto';
+  queryInput.style.height = Math.min(queryInput.scrollHeight, 120) + 'px';
+});
+
+sendBtn.addEventListener('click', sendQuery);
+
+function useChip(el) {
+  queryInput.value = el.textContent;
+  queryInput.focus();
+}
+
+async function sendQuery() {
+  const q = queryInput.value.trim();
+  if (!q) return;
+
+  // Hide welcome screen
+  document.getElementById('welcome').style.display = 'none';
+
+  // Add user message
+  appendMessage('user', q);
+  queryInput.value = '';
+  queryInput.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  // Show typing indicator
+  const typingId = showTyping();
+
+  try {
+    let data;
+
+    if (isDemo) {
+      // Demo mode: simulate API delay + return canned response
+      await new Promise(r => setTimeout(r, 1400));
+      const key = q.toLowerCase().includes('summar') ? 'summary' : 'default';
+      data = { status: 'success', question: q, answer: DEMO_QA[key].answer, sources: DEMO_QA[key].sources, model_used: 'gpt-4o-mini (demo)' };
+    } else {
+      const res = await fetch(`${API_BASE}/query/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, document_ids: [], top_k: 4 }),
+      });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Query failed');
+    }
+
+    removeTyping(typingId);
+    appendAnswer(data);
+  } catch (err) {
+    removeTyping(typingId);
+    appendMessage('assistant', `⚠️ ${err.message}`);
+    showToast(err.message, 'error');
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+function appendMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  div.innerHTML = `
+    <span class="msg-label">${role === 'user' ? 'You' : 'DocMind'}</span>
+    <div class="msg-bubble">${escapeHtml(text)}</div>
+  `;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function appendAnswer(data) {
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+
+  const sourcesHtml = data.sources && data.sources.length > 0 ? `
+    <div class="citations">
+      <div class="citations-header">📎 ${data.sources.length} source${data.sources.length > 1 ? 's' : ''} · ${data.model_used || ''}</div>
+      ${data.sources.map(s => `
+        <div class="citation-card">
+          <div class="citation-meta">
+            <span class="citation-file">${escapeHtml(s.filename)}</span>
+            <span class="citation-page">p.${s.page}</span>
+            <span class="citation-score">score: ${(s.relevance_score * 100).toFixed(1)}%</span>
+          </div>
+          <div class="citation-snippet">${escapeHtml(s.snippet)}</div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  div.innerHTML = `
+    <span class="msg-label">DocMind</span>
+    <div class="msg-bubble">${escapeHtml(data.answer)}</div>
+    ${sourcesHtml}
+  `;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function showTyping() {
+  const id = 'typing_' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = id;
+  div.innerHTML = `
+    <span class="msg-label">DocMind</span>
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+checkHealth();
+</script>
+</body>
+</html>

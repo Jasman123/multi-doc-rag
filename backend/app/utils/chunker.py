@@ -9,10 +9,10 @@ logger = get_logger(__name__)
 
 @dataclass
 class TextChunk:
-    chunkd_id: str
+    chunk_id: str
     document_id: str
     filename: str
-    page_number: str
+    page_number: int
     chunk_index: int
     text: str
     char_count: int = field(init=False)

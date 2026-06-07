@@ -6,7 +6,7 @@ from app.core.config import get_settings
 def get_logger(name: str) -> logging.Logger:
 
     settings = get_settings()
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(name)
 
     if logger.handlers:
         return logger

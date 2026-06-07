@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 64
 
-    top_k_vextor: int =5
+    top_k_vector: int =5
     top_k_bm25: int = 5
     top_k_final: int = 4
 
@@ -28,5 +28,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings
+    return Settings()
 

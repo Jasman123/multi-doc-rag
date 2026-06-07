@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
 class QueryRequest(BaseModel):
     question: str = Field(min_length=3, max_length=1000)
-    document_ids = list[str] = Field(default=[], description="Filter to specific docs. Empty = search all.")
-    top_k: int = Field(default=4, get=1, le=10)
+    document_ids: list[str] = Field(default=[], description="Filter to specific docs. Empty = search all.")
+    top_k: int = Field(default=4, ge=1, le=10)
 
 class CitedSource(BaseModel):
     document_id: str
@@ -13,7 +13,9 @@ class CitedSource(BaseModel):
     snippet: str = Field(description="Exact chunk text used as context")
     relevance_score: float = Field(description="RRF fusion score - higher = more relevance")
 
-class QueryRequest(BaseModel):
+class QueryResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     status: Literal["success", "failed"]
     question: str
     answer: str

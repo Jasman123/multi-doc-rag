@@ -5,7 +5,7 @@ logger = get_logger(__name__)
 RRF_K = 60
 
 def _tokenize(text: str) -> list[str]:
-    return text.lower().split()
+    return (text or "").lower().split()
 
 
 def bm25_search(query: str, corpus: list[dict], top_k: int,) -> list[dict]:

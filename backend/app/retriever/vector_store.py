@@ -71,9 +71,13 @@ async def vector_search(query: str, collection: Collection, openai_client: Async
         output = []
         if results["ids"] and results["ids"][0]:
              for i, chunk_id in enumerate(results["ids"][0]):
+                  text = results["documents"][0][i]
+                  if text is None:
+                       logger.warning(f"Skipping chunk {chunk_id} — null document text in ChromaDB index")
+                       continue
                   output.append({
                        "chunk_id": chunk_id,
-                       "text": results["documents"][0][i],
+                       "text": text,
                        "metadata": results["metadatas"][0][i],
                        "score": 1 - results["distances"][0][i],
                   })

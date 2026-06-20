@@ -1,4 +1,4 @@
-import uuid
+import hashlib
 from openai import AsyncOpenAI
 from chromadb import Collection
 
@@ -11,7 +11,7 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 async def ingest_document(file_bytes: bytes, filename: str, collection: Collection,openai_client: AsyncOpenAI,) -> IngestResponse:
-    document_id = f"doc_{uuid.uuid4().hex[:12]}"
+    document_id = f"doc_{hashlib.sha256(file_bytes).hexdigest()[:12]}"
     logger.info(f"Starting ingestion | file='{filename}' | doc_id='{document_id}'")
      
     pages = parse_pdf(file_bytes, filename)

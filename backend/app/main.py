@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.chromadb import get_chroma_collection
 from app.core.logging import get_logger
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 
 logger = get_logger(__name__)
 
@@ -55,5 +55,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
-

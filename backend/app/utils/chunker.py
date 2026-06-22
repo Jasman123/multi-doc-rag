@@ -23,8 +23,8 @@ class TextChunk:
 
 def chunk_pages(pages: list[ParsedPage], document_id: str, filename: str, chunk_size: int | None = None, chunk_overlap: int | None = None, ) -> list[TextChunk]:
     settings = get_settings()
-    size = chunk_size or settings.chunk_size
-    overlap = chunk_overlap or settings.chunk_overlap
+    size = chunk_size if chunk_size is not None else settings.chunk_size
+    overlap = chunk_overlap if chunk_overlap is not None else settings.chunk_overlap
 
     chunks: list[TextChunk] = []
 

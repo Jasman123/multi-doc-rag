@@ -778,6 +778,16 @@ async function loadCollectionStatus() {
     const data = await res.json();
     totalChunks = data.total_chunks || 0;
     document.getElementById('statChunks').textContent = totalChunks;
+    if (data.documents && data.documents.length > 0) {
+      documents = data.documents.map(d => ({
+        id: d.document_id,
+        filename: d.filename,
+        chunks: d.chunk_count,
+        pages: null,
+      }));
+      renderDocList();
+      document.getElementById('statDocs').textContent = documents.length;
+    }
   } catch {}
 }
 

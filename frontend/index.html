@@ -133,6 +133,31 @@
 
   .demo-badge.visible { display: block; }
 
+  .user-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: none;
+  }
+
+  .user-badge.visible { display: inline; }
+
+  .logout-btn {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-light);
+    color: var(--text-muted);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: 0.68rem;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+  .logout-btn.visible { display: inline-block; }
+
   /* ─── Sidebar ───────────────────────────────────────────────── */
   aside {
     border-right: 1px solid var(--border);
@@ -640,6 +665,8 @@
     </a>
     <div class="header-meta">
       <span class="demo-badge" id="demoBadge">DEMO MODE</span>
+      <span id="userBadge" class="user-badge"></span>
+      <button id="logoutBtn" class="logout-btn">Logout</button>
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">connecting...</span>
     </div>
@@ -721,10 +748,88 @@
 <script>
 // ─── Config ────────────────────────────────────────────────────────────────
 const API_BASE = `${window.location.origin}/api/v1`;
+const ACCESS_TOKEN_KEY = 'docmind_access_token';
+const REFRESH_TOKEN_KEY = 'docmind_refresh_token';
 let isDemo = false;
 let pendingFiles = [];
 let documents = [];   // { id, filename, chunks, pages }
 let totalChunks = 0;
+let currentUser = null;
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+function getAccessToken() { return localStorage.getItem(ACCESS_TOKEN_KEY); }
+function getRefreshToken() { return localStorage.getItem(REFRESH_TOKEN_KEY); }
+
+function setTokens(access, refresh) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+}
+
+function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+function redirectToLogin() {
+  window.location.href = 'login.html';
+}
+
+function authHeaders(extra = {}) {
+  const token = getAccessToken();
+  return token ? { ...extra, 'Authorization': `Bearer ${token}` } : extra;
+}
+
+async function tryRefreshToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** fetch() wrapped with the access token, transparent refresh-on-401 (once), and
+ * a redirect to login if the session can't be salvaged. */
+async function apiFetch(url, options = {}) {
+  let res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (!refreshed) {
+      clearTokens();
+      redirectToLogin();
+      throw new Error('Session expired. Please log in again.');
+    }
+    res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  }
+  return res;
+}
+
+async function loadCurrentUser() {
+  try {
+    const res = await apiFetch(`${API_BASE}/auth/me`);
+    if (!res.ok) return;
+    currentUser = await res.json();
+    const badge = document.getElementById('userBadge');
+    badge.textContent = `${currentUser.email} · ${currentUser.role}`;
+    badge.classList.add('visible');
+    document.getElementById('logoutBtn').classList.add('visible');
+  } catch {}
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearTokens();
+  sessionStorage.removeItem('docmind_demo');
+  redirectToLogin();
+});
 
 // ─── Demo Mode Data ─────────────────────────────────────────────────────────
 const DEMO_DOCS = [
@@ -753,10 +858,21 @@ const DEMO_QA = {
 
 // ─── API Health Check ──────────────────────────────────────────────────────
 async function checkHealth() {
+  if (sessionStorage.getItem('docmind_demo') === '1') {
+    activateDemoMode();
+    return;
+  }
+
+  if (!getAccessToken()) {
+    redirectToLogin();
+    return;
+  }
+
   try {
     const res = await fetch(`${API_BASE.replace('/api/v1', '')}/health`, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       setStatus(true);
+      await loadCurrentUser();
       await loadCollectionStatus();
       return;
     }
@@ -774,7 +890,7 @@ function setStatus(online) {
 
 async function loadCollectionStatus() {
   try {
-    const res = await fetch(`${API_BASE}/ingest/status`);
+    const res = await apiFetch(`${API_BASE}/ingest/status`);
     const data = await res.json();
     totalChunks = data.total_chunks || 0;
     document.getElementById('statChunks').textContent = totalChunks;
@@ -795,6 +911,8 @@ function activateDemoMode() {
   isDemo = true;
   setStatus(false);
   document.getElementById('demoBadge').classList.add('visible');
+  document.getElementById('logoutBtn').textContent = 'Exit Demo';
+  document.getElementById('logoutBtn').classList.add('visible');
 
   // Load demo documents
   documents = DEMO_DOCS;
@@ -868,14 +986,14 @@ async function handleUpload() {
   pendingFiles.forEach(f => formData.append('files', f));
 
   try {
-    const res = await fetch(`${API_BASE}/ingest/`, { method: 'POST', body: formData });
+    const res = await apiFetch(`${API_BASE}/ingest/`, { method: 'POST', body: formData });
     const results = await res.json();
 
     if (!res.ok) throw new Error(results.detail || 'Upload failed');
 
     for (const r of results) {
       documents.push({ id: r.document_id, filename: r.filename, chunks: r.chunk_created, pages: r.pages_processed });
-      totalChunks += r.chunks_created;
+      totalChunks += r.chunk_created;
     }
 
     renderDocList();
@@ -956,7 +1074,7 @@ async function sendQuery() {
       const key = q.toLowerCase().includes('summar') ? 'summary' : 'default';
       data = { status: 'success', question: q, answer: DEMO_QA[key].answer, sources: DEMO_QA[key].sources, model_used: 'gpt-4o-mini (demo)' };
     } else {
-      const res = await fetch(`${API_BASE}/query/`, {
+      const res = await apiFetch(`${API_BASE}/query/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q, document_ids: [], top_k: 4 }),

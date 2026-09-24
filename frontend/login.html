@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — DocMind</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg:           #0c0d0f;
+    --surface:      #13151a;
+    --surface-2:    #1a1d24;
+    --border:       #272b35;
+    --border-light: #313642;
+    --accent:       #c8f135;
+    --accent-dim:   #a8cc25;
+    --accent-glow:  rgba(200, 241, 53, 0.08);
+    --text:         #e8eaf0;
+    --text-muted:   #7a8099;
+    --text-dim:     #4a5068;
+    --red:          #ff5f5f;
+    --radius:       10px;
+    --radius-lg:    16px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    animation: fadeUp 0.4s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 28px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 3px;
+    margin-bottom: 22px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    border-radius: 7px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tab.active {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-light);
+  }
+
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.18s ease;
+  }
+
+  .field input:focus { border-color: var(--accent); }
+
+  .hint {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    background: var(--accent);
+    color: #0c0d0f;
+    transition: all 0.18s ease;
+    margin-top: 4px;
+  }
+
+  .btn:hover { background: var(--accent-dim); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .error {
+    background: rgba(255,95,95,0.1);
+    border: 1px solid rgba(255,95,95,0.25);
+    color: var(--red);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .error.visible { display: block; }
+
+  .demo-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .demo-link:hover { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo"><div class="logo-icon">⬡</div>DocMind</div>
+  <p class="subtitle">Sign in to upload and query your documents.</p>
+
+  <div class="tabs">
+    <div class="tab active" id="tabLogin" onclick="switchTab('login')">Sign In</div>
+    <div class="tab" id="tabRegister" onclick="switchTab('register')">Register</div>
+  </div>
+
+  <div class="error" id="errorBox"></div>
+
+  <form id="authForm">
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" required minlength="8">
+      <div class="hint" id="passwordHint" style="display:none">Minimum 8 characters.</div>
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Sign In</button>
+  </form>
+
+  <span class="demo-link" onclick="continueAsDemo()">Continue without an account (demo mode)</span>
+</div>
+
+<script>
+const API_BASE = `${window.location.origin}/api/v1`;
+const ACCESS_TOKEN_KEY = 'docmind_access_token';
+const REFRESH_TOKEN_KEY = 'docmind_refresh_token';
+
+let mode = 'login'; // 'login' | 'register'
+
+const form = document.getElementById('authForm');
+const errorBox = document.getElementById('errorBox');
+const submitBtn = document.getElementById('submitBtn');
+const passwordInput = document.getElementById('password');
+const passwordHint = document.getElementById('passwordHint');
+
+function switchTab(next) {
+  mode = next;
+  document.getElementById('tabLogin').classList.toggle('active', next === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', next === 'register');
+  submitBtn.textContent = next === 'login' ? 'Sign In' : 'Create Account';
+  passwordInput.autocomplete = next === 'login' ? 'current-password' : 'new-password';
+  passwordHint.style.display = next === 'register' ? 'block' : 'none';
+  hideError();
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.add('visible');
+}
+
+function hideError() {
+  errorBox.classList.remove('visible');
+}
+
+function continueAsDemo() {
+  sessionStorage.setItem('docmind_demo', '1');
+  window.location.href = 'index.html';
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideError();
+
+  const email = document.getElementById('email').value.trim();
+  const password = passwordInput.value;
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = mode === 'login' ? 'Signing in...' : 'Creating account...';
+
+  try {
+    if (mode === 'register') {
+      const regRes = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const regData = await regRes.json();
+      if (!regRes.ok) throw new Error(regData.detail || 'Registration failed.');
+    }
+
+    const loginRes = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const loginData = await loginRes.json();
+    if (!loginRes.ok) throw new Error(loginData.detail || 'Login failed.');
+
+    localStorage.setItem(ACCESS_TOKEN_KEY, loginData.access_token);
+    localStorage.setItem(REFRESH_TOKEN_KEY, loginData.refresh_token);
+    sessionStorage.removeItem('docmind_demo');
+    window.location.href = 'index.html';
+  } catch (err) {
+    showError(err.message || 'Something went wrong.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+  }
+});
+
+// Already have a valid-looking session? Skip straight to the app.
+if (localStorage.getItem(ACCESS_TOKEN_KEY)) {
+  window.location.href = 'index.html';
+}
+</script>
+</body>
+</html>

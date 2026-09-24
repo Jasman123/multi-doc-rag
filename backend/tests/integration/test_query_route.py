@@ -1,6 +1,20 @@
 """Integration tests for POST /api/v1/query/."""
 import pytest
 
+from app.api.dependencies import get_current_user
+
+
+# ── authorization ─────────────────────────────────────────────────────────────
+
+def test_query_as_regular_user_returns_200(client_populated, fake_user):
+    """query is open to any authenticated user, not just admins."""
+    client_populated.app.dependency_overrides[get_current_user] = lambda: fake_user
+    resp = client_populated.post(
+        "/api/v1/query/",
+        json={"question": "What is the capital of France?"},
+    )
+    assert resp.status_code == 200
+
 
 # ── guard: empty collection ───────────────────────────────────────────────────
 

@@ -25,6 +25,6 @@ async def bump_token_version(db: AsyncSession, user: User) -> None:
     user.token_version += 1
     await db.commit()
 
-async def list_user(db: AsyncSession) -> list[User]:
+async def list_users(db: AsyncSession) -> list[User]:
     result = await db.execute(select(User))
     return list(result.scalars().all())

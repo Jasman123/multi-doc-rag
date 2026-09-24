@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import ingest, query
+from app.api.routes import auth, ingest, query
 from app.core.config import get_settings
 from app.core.chromadb import get_chroma_collection
 from app.core.logging import get_logger
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
 
     app.include_router(ingest.router, prefix="/api/v1")
     app.include_router(query.router, prefix="/api/v1")
+    app.include_router(auth.router, prefix="/api/v1")
 
     @app.get("/health", tags=["Health"])
     async def health():

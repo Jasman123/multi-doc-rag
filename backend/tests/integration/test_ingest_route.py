@@ -2,6 +2,8 @@
 import fitz  # PyMuPDF
 import pytest
 
+from app.api.dependencies import get_current_user
+
 
 def _make_pdf(text: str = "Hello from a test PDF document. " * 20) -> bytes:
     """Create a minimal valid PDF with extractable text using PyMuPDF."""
@@ -120,6 +122,19 @@ def test_status_empty_collection(client_empty):
     assert body["has_documents"] is False
     assert body["total_chunks"] == 0
     assert body["document_count"] == 0
+
+
+# ── authorization ─────────────────────────────────────────────────────────────
+
+def test_ingest_as_non_admin_returns_403(client_empty, fake_user):
+    """client_empty authenticates as an admin by default; override to a plain user
+    to confirm the admin-only guard on POST /ingest actually runs."""
+    client_empty.app.dependency_overrides[get_current_user] = lambda: fake_user
+    resp = client_empty.post(
+        "/api/v1/ingest/",
+        files=[("files", ("test.pdf", VALID_PDF, "application/pdf"))],
+    )
+    assert resp.status_code == 403
 
 
 def test_status_after_successful_ingest(client_empty):

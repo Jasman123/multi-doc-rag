@@ -1,8 +1,9 @@
 from chromadb import Collection
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.dependencies import get_collection, get_embedder
+from app.api.dependencies import get_collection, get_embedder, require_admin
 from app.core.logging import get_logger
+from app.models.user import User
 from app.ports.embedder_port import EmbedderPort
 from app.schemas.ingest import IngestResponse
 from app.services.ingestion_service import ingest_document
@@ -19,6 +20,7 @@ async def ingest_documents(
     files: list[UploadFile] = File(...),
     collection: Collection = Depends(get_collection),
     embedder: EmbedderPort = Depends(get_embedder),
+    current_user: User = Depends(require_admin),
 ) -> list[IngestResponse]:
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")

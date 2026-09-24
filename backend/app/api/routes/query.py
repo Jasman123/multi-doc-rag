@@ -1,8 +1,9 @@
 from chromadb import Collection
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.dependencies import get_collection, get_embedder, get_llm
+from app.api.dependencies import get_collection, get_current_user, get_embedder, get_llm
 from app.core.logging import get_logger
+from app.models.user import User
 from app.ports.embedder_port import EmbedderPort
 from app.ports.llm_port import LLMPort
 from app.schemas.query import QueryRequest, QueryResponse
@@ -18,6 +19,7 @@ async def query_documents(
     collection: Collection = Depends(get_collection),
     embedder: EmbedderPort = Depends(get_embedder),
     llm: LLMPort = Depends(get_llm),
+    current_user: User = Depends(get_current_user),
 ) -> QueryResponse:
     logger.info(f"Query: '{request.question[:80]}'")
 

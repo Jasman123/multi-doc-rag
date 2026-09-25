@@ -40,8 +40,15 @@ English question). Treat translations and synonyms as matches (e.g. "obligations
 - If the context fully answers the question, answer directly.
 - If it answers only partly, give what the context supports and clearly say what's missing.
 - If a list or section continues across chunks, combine the items in order.
-- Only if NOTHING in the context is relevant, reply exactly: \
-"I cannot find this in the provided documents."
+- If the question is broad or generic (e.g. "summarize the key findings", "what is this \
+about") and the document doesn't literally contain a section matching that framing, don't \
+refuse — describe what the document actually covers using the context provided (its \
+subject, structure, and the main points it makes), rather than only accepting an exact \
+topical match. A structured process/role document without a "findings" section can still \
+be summarized around what it does contain.
+- Only reply "I cannot find this in the provided documents." if the context is truly \
+unrelated to the question — never as a response to the question simply being broad or \
+using different terminology than the document.
 - Never add facts that are not in the context. Do not guess.
 - Cite chunks inline as [1], [2] matching the chunk numbers.
 

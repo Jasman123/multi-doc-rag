@@ -99,8 +99,10 @@ async def test_answer_query_calls_llm_with_system_and_user_messages(fake_llm, fa
     req = QueryRequest(question="Tell me about France.")
     await answer_query(request=req, collection=col,
                        embedder=fake_embedder, llm=fake_llm)
-    assert len(fake_llm.calls) == 1
-    roles = [m["role"] for m in fake_llm.calls[0]]
+    # analyze_query, grade, generate — FakeEmbedder's all-zero vectors mean the
+    # grade-skip similarity heuristic never fires, so grade always calls the LLM too.
+    assert len(fake_llm.calls) == 3
+    roles = [m["role"] for m in fake_llm.calls[-1]]  # generate is the last call
     assert "system" in roles
     assert "user" in roles
 
@@ -111,7 +113,7 @@ async def test_answer_query_system_message_contains_context(fake_llm, fake_embed
     req = QueryRequest(question="What is in the document?")
     await answer_query(request=req, collection=col,
                        embedder=fake_embedder, llm=fake_llm)
-    system_msg = next(m for m in fake_llm.calls[0] if m["role"] == "system")
+    system_msg = next(m for m in fake_llm.calls[-1] if m["role"] == "system")
     assert "Paris" in system_msg["content"]
 
 
@@ -122,7 +124,7 @@ async def test_answer_query_user_message_is_question(fake_llm, fake_embedder):
     req = QueryRequest(question=question)
     await answer_query(request=req, collection=col,
                        embedder=fake_embedder, llm=fake_llm)
-    user_msg = next(m for m in fake_llm.calls[0] if m["role"] == "user")
+    user_msg = next(m for m in fake_llm.calls[-1] if m["role"] == "user")
     assert user_msg["content"] == question
 
 

@@ -1,6 +1,7 @@
 import fitz
 from dataclasses import dataclass
 from app.core.logging import get_logger
+import re
 
 
 logger = get_logger(__name__)
@@ -28,7 +29,9 @@ def parse_pdf(file_bytes: bytes, filename: str) -> list[ParsedPage]:
 
     for i, page in enumerate(doc):
         text = page.get_text("text")
-        text = " ".join(text.split())
+        text = re.sub(r"[ \t ]+", " ", text)
+        text = re.sub(r" *\n *", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
 
         pages.append(ParsedPage(
             page_number=i+1,

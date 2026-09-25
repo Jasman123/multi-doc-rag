@@ -1,3 +1,4 @@
+import numpy as np
 from chromadb import Collection
 
 from app.core.logging import get_logger
@@ -42,44 +43,66 @@ async def store_chunks(
     logger.info(f"Stored {len(chunks)} chunks in ChromaDB")
     return len(chunks)
 
+def delete_document_chunks(collection: Collection, document_id: str) -> None:
+    collection.delete(where={"document_id":document_id})
+
 
 async def vector_search(
-    query: str,
+    query_embeddings: list[list[float]],
     collection: Collection,
-    embedder: EmbedderPort,
     top_k: int,
     document_ids: list[str] | None = None,
-) -> list[dict]:
-    query_embedding = await embedder.embed([query])
+) -> list[list[dict]]:
+    if not query_embeddings:
+        return []
+    
+    where_filter = {"document_id": {"$in": document_ids}} if document_ids else None
 
-    where_filter = None
-    if document_ids:
-        where_filter = {"document_id": {"$in": document_ids}}
 
     results = collection.query(
-        query_embeddings=query_embedding,
+        query_embeddings=query_embeddings,
         n_results=top_k,
         where=where_filter,
         include=["documents", "metadatas", "distances"],
     )
 
-    output = []
-    if results["ids"] and results["ids"][0]:
-        for i, chunk_id in enumerate(results["ids"][0]):
-            text = results["documents"][0][i]
+    all_lists: list[list[dict]] = []
+    for q, chunk_ids in enumerate(results["ids"] or []):
+        output = []
+        for i, chunk_id in enumerate(chunk_ids):
+            text = results["documents"][q][i]
             if text is None:
-                logger.warning(
-                    f"Skipping chunk {chunk_id} — null document text in ChromaDB"
-                )
+                logger.warning(f"Skipping chunk {chunk_id} — null document text in ChromaDB")
                 continue
-            output.append(
-                {
-                    "chunk_id": chunk_id,
-                    "text": text,
-                    "metadata": results["metadatas"][0][i],
-                    "score": 1 - results["distances"][0][i],
-                }
-            )
+            output.append({
+                "chunk_id": chunk_id,
+                "text": text,
+                "metadata": results["metadatas"][q][i],
+                "score": 1 - results["distances"][q][i],
+            })
+        all_lists.append(output)
 
-    logger.debug(f"Vector search returned {len(output)} results")
-    return output
+    logger.debug(f"Vector search returned {[len(o) for o in all_lists]} results for {len(query_embeddings)} variant(s)")
+    return all_lists
+
+def attach_similarity(chunks: list[dict], query_embeddings: list[list[float]], collection: Collection) -> None:
+    ids = [c["chunk_id"] for c in chunks]
+    got = collection.get(ids=ids, include=["embeddings"])
+    emb_by_id = dict(zip(got["ids"], got["embeddings"]))
+
+    q = np.asarray(query_embeddings, dtype=float)
+    q_norms = np.linalg.norm(q, axis=1)
+
+    for chunk in chunks:
+        emb = emb_by_id.get(chunk["chunk_id"])
+        if emb is None:
+            chunk["similarity"] = 0.0
+            continue
+        e = np.asarray(emb, dtype=float)
+        e_norm = np.linalg.norm(e)
+        valid = (q_norms > 0) & (e_norm > 0)
+        if not valid.any():
+            chunk["similarity"] = 0.0
+            continue
+        sims = (q[valid] @ e) / (q_norms[valid] * e_norm)
+        chunk["similarity"] = float(np.clip(sims.max(), 0.0, 1.0))

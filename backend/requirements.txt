@@ -4,7 +4,7 @@ python-multipart==0.0.12
 aiofiles>=23.0.0
 langchain==0.3.7
 langchain-openai==0.2.9
-langchain-core==0.3.19
+langchain-core==0.3.63
 openai==1.54.4
 chromadb==0.5.20
 PyMuPDF==1.24.13
@@ -22,3 +22,5 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 email-validator==2.2.0
 aiosqlite==0.20.0
+langgraph==0.2.74
+langchain-text-splitters==0.3.2

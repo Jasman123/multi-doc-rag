@@ -111,3 +111,11 @@ def test_rrf_descending_score_order():
     result = reciprocal_rank_fusion(chunks, [], top_k=5)
     scores = [r["rrf_score"] for r in result]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_rrf_fuses_more_than_two_lists():
+    a = [_chunk("x", "a")]
+    b = [_chunk("y", "b")]
+    c = [_chunk("z", "c")]
+    result = reciprocal_rank_fusion(a, b, c, top_k=10)
+    assert len(result) == 3

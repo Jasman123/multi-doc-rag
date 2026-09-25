@@ -95,3 +95,18 @@ def test_zero_overlap_no_repeated_content():
     # Concatenating chunks should not contain more chars than the original
     total_chars = sum(len(c.text) for c in chunks)
     assert total_chars <= len(text.strip())
+
+
+# ── structure-aware splitting ─────────────────────────────────────────────────
+
+def test_list_items_not_cut_mid_item():
+    text = (
+        "Heading\n\n"
+        "1. First responsibility with enough detail to matter.\n"
+        "2. Second responsibility, also fairly long.\n"
+        "3. Third one."
+    )
+    pages = [_page(1, text)]
+    chunks = chunk_pages(pages, DOC_ID, FNAME, chunk_size=60, chunk_overlap=10)
+    for item in ("1. First", "2. Second", "3. Third"):
+        assert any(item in c.text for c in chunks)

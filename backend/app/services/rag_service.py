@@ -4,32 +4,12 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.ports.embedder_port import EmbedderPort
 from app.ports.llm_port import LLMPort
-from app.retriever.hybrid import bm25_search, reciprocal_rank_fusion
-from app.retriever.vector_store import vector_search
 from app.schemas.query import CitedSource, QueryRequest, QueryResponse
+from app.services.rag_graph.context import build_context as _build_context  # noqa: F401 (re-exported for existing tests)
+from app.services.rag_graph.graph import build_rag_graph
+from app.services.rag_graph.nodes import RAGNodes
 
 logger = get_logger(__name__)
-
-_RAG_SYSTEM_PROMPT = """\
-You are a precise document intelligence assistant.
-Answer ONLY using the provided context chunks.
-If the answer is not in the context, say "I cannot find this in the provided documents."
-Never make up information. Be factual and concise.
-
-Context:
-{context}"""
-
-
-def _build_context(chunks: list[dict]) -> str:
-    parts = []
-    for i, chunk in enumerate(chunks, 1):
-        meta = chunk.get("metadata", {})
-        parts.append(
-            f"[{i}] Source: {meta.get('filename', 'unknown')} | "
-            f"Page {meta.get('page_number', '?')}\n"
-            f"{chunk['text']}"
-        )
-    return "\n\n".join(parts)
 
 
 async def answer_query(
@@ -41,41 +21,26 @@ async def answer_query(
     settings = get_settings()
     logger.info(f"RAG query: '{request.question[:80]}'")
 
-    vector_results = await vector_search(
-        query=request.question,
-        collection=collection,
-        embedder=embedder,
-        top_k=settings.top_k_vector,
-        document_ids=request.document_ids or None,
-    )
+    nodes = RAGNodes(collection=collection, embedder=embedder, llm=llm, settings=settings)
+    graph = build_rag_graph(nodes, max_retries=settings.rag_max_retries)
 
-    total_chunks_searched = collection.count()
-    bm25_results = bm25_search(
-        query=request.question, corpus=vector_results, top_k=settings.top_k_bm25
-    )
+    initial_state = {
+        "question": request.question,
+        "document_ids": request.document_ids or None,
+        "top_k": request.top_k or settings.top_k_final,
+        "attempt": 0,
+    }
+    final_state = await graph.ainvoke(initial_state, config={"recursion_limit": 12})
 
-    fused_chunks = reciprocal_rank_fusion(
-        vector_results=vector_results,
-        bm25_results=bm25_results,
-        top_k=request.top_k or settings.top_k_final,
-    )
-
-    if not fused_chunks:
+    if final_state["status"] == "failed":
         return QueryResponse(
             status="failed",
             question=request.question,
-            answer="No documents found. Please ingest documents first.",
+            answer=final_state["answer"],
             sources=[],
             model_used=llm.model_name,
-            total_chunks_searched=total_chunks_searched,
+            total_chunks_searched=collection.count(),
         )
-
-    context = _build_context(fused_chunks)
-    messages = [
-        {"role": "system", "content": _RAG_SYSTEM_PROMPT.format(context=context)},
-        {"role": "user", "content": request.question},
-    ]
-    answer = await llm.chat(messages)
 
     sources = [
         CitedSource(
@@ -83,18 +48,18 @@ async def answer_query(
             filename=chunk["metadata"]["filename"],
             page=chunk["metadata"]["page_number"],
             snippet=chunk["text"][:300],
-            relevance_score=chunk.get("rrf_score", 0.0),
+            relevance_score=chunk.get("similarity", 0.0),
         )
-        for chunk in fused_chunks
+        for chunk in final_state["final_chunks"]
     ]
 
-    logger.info(f"RAG complete | sources={len(sources)} | answer_len={len(answer)}")
+    logger.info(f"RAG complete | sources={len(sources)} | answer_len={len(final_state['answer'])}")
 
     return QueryResponse(
         status="success",
         question=request.question,
-        answer=answer,
+        answer=final_state["answer"],
         sources=sources,
         model_used=llm.model_name,
-        total_chunks_searched=total_chunks_searched,
+        total_chunks_searched=collection.count(),
     )

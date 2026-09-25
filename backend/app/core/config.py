@@ -10,12 +10,16 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./storage/chroma"
     chroma_collection_name: str = "multi_doc_rag"
 
-    chunk_size: int = 512
-    chunk_overlap: int = 64
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
 
-    top_k_vector: int =5
-    top_k_bm25: int = 5
-    top_k_final: int = 4
+    top_k_vector: int = 10
+    top_k_bm25: int = 10
+    top_k_final: int = 8
+
+    rag_max_retries: int = 1
+    grade_skip_similarity: float = 0.55
+    query_expansion_languages: list[str] = ["Indonesian"]
 
     app_name: str = "Multi-Doc RAG"
     app_version: str = "1.0.0"

@@ -842,16 +842,16 @@ const DEMO_QA = {
   default: {
     answer: "Based on the ingested documents, I found several relevant sections addressing your question. The documents indicate that the key considerations involve strategic alignment, resource allocation, and risk management frameworks outlined across multiple sections.",
     sources: [
-      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 7, snippet: 'Revenue grew 34% year-over-year, driven by enterprise contract expansions and new market penetration in Southeast Asia. Operating margins improved to 23.4% from 18.1% in the prior period.', relevance_score: 0.0312 },
-      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 3, snippet: 'Phase 2 deployment targets Q3 2026, contingent on successful completion of the security audit and regulatory approval in target jurisdictions. Resource requirements estimated at 4 FTE for 6 months.', relevance_score: 0.0287 },
+      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 7, snippet: 'Revenue grew 34% year-over-year, driven by enterprise contract expansions and new market penetration in Southeast Asia. Operating margins improved to 23.4% from 18.1% in the prior period.', relevance_score: 0.52 },
+      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 3, snippet: 'Phase 2 deployment targets Q3 2026, contingent on successful completion of the security audit and regulatory approval in target jurisdictions. Resource requirements estimated at 4 FTE for 6 months.', relevance_score: 0.47 },
     ]
   },
   summary: {
     answer: "The documents collectively cover three main areas: financial performance (Q4 showing strong growth with 34% YoY revenue increase), product strategy (roadmap through 2026 with phased rollouts), and contractual obligations (partnership agreement detailing revenue share, exclusivity clauses, and SLA commitments). Key risks identified include regulatory uncertainty in new markets and dependency on third-party infrastructure providers.",
     sources: [
-      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 2, snippet: 'Executive summary: Fiscal Q4 marked a transformative quarter with record revenue of $12.4M, driven by enterprise expansion and successful market entry into three new verticals.', relevance_score: 0.0341 },
-      { document_id: 'doc_demo003', filename: 'Partnership_Agreement.pdf', page: 1, snippet: 'This agreement establishes the terms of collaboration between the parties, including revenue sharing (70/30 split), intellectual property rights, and a 24-month exclusivity clause for the defined territory.', relevance_score: 0.0298 },
-      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 8, snippet: 'Risk factors: third-party API dependency represents a critical path risk. Mitigation plan includes vendor diversification by Q2 2026 and fallback architecture design by end of Q1.', relevance_score: 0.0255 },
+      { document_id: 'doc_demo001', filename: 'Q4_Financial_Report.pdf', page: 2, snippet: 'Executive summary: Fiscal Q4 marked a transformative quarter with record revenue of $12.4M, driven by enterprise expansion and successful market entry into three new verticals.', relevance_score: 0.61 },
+      { document_id: 'doc_demo003', filename: 'Partnership_Agreement.pdf', page: 1, snippet: 'This agreement establishes the terms of collaboration between the parties, including revenue sharing (70/30 split), intellectual property rights, and a 24-month exclusivity clause for the defined territory.', relevance_score: 0.44 },
+      { document_id: 'doc_demo002', filename: 'Product_Roadmap_2026.pdf', page: 8, snippet: 'Risk factors: third-party API dependency represents a critical path risk. Mitigation plan includes vendor diversification by Q2 2026 and fallback architecture design by end of Q1.', relevance_score: 0.38 },
     ]
   }
 };
@@ -1077,7 +1077,7 @@ async function sendQuery() {
       const res = await apiFetch(`${API_BASE}/query/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, document_ids: [], top_k: 4 }),
+        body: JSON.stringify({ question: q, document_ids: [], top_k: 8 }),
       });
       data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Query failed');
@@ -1117,7 +1117,7 @@ function appendAnswer(data) {
           <div class="citation-meta">
             <span class="citation-file">${escapeHtml(s.filename)}</span>
             <span class="citation-page">p.${s.page}</span>
-            <span class="citation-score">score: ${(s.relevance_score * 100).toFixed(1)}%</span>
+            <span class="citation-score" title="Semantic similarity to your question (0-1). Sources are ordered by combined vector+keyword rank, not strictly by this number.">sim: ${s.relevance_score.toFixed(2)}</span>
           </div>
           <div class="citation-snippet">${escapeHtml(s.snippet)}</div>
         </div>

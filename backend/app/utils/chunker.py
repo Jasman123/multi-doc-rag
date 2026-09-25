@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from app.utils.pdf_parser import ParsedPage
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -26,35 +28,34 @@ def chunk_pages(pages: list[ParsedPage], document_id: str, filename: str, chunk_
     size = chunk_size if chunk_size is not None else settings.chunk_size
     overlap = chunk_overlap if chunk_overlap is not None else settings.chunk_overlap
 
-    chunks: list[TextChunk] = []
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=size,
+        chunk_overlap=overlap,
+        separators=["\n\n", "\n", ". ", "; ", " ", ""],
+    )
 
+    chunks: list[TextChunk] = []
     chunk_index = 0
 
     for page in pages:
         text = page.text.strip()
 
-        if len(text) < 50 :
+        if len(text) < 50:
             logger.debug(f"Skipping near-empty page {page.page_number} in '{filename}'")
             continue
-        start = 0
-        while start < len(text):
-            end = min(start + size, len(text))
-            chunk_text = text[start:end].strip()
 
-            if len(chunk_text) > 30:
+        for piece in splitter.split_text(text):
+            piece = piece.strip()
+            if len(piece) > 30:
                 chunks.append(TextChunk(
                     chunk_id=f"{document_id}_chunk_{chunk_index}",
                     document_id=document_id,
                     filename=filename,
                     page_number=page.page_number,
                     chunk_index=chunk_index,
-                    text=chunk_text,
+                    text=piece,
                 ))
                 chunk_index += 1
-
-            if end == len(text):
-                break
-            start += size - overlap
 
     logger.info(
         f"Chunked '{filename}' | {len(pages)} pages → {len(chunks)} chunks "
@@ -62,5 +63,3 @@ def chunk_pages(pages: list[ParsedPage], document_id: str, filename: str, chunk_
     )
 
     return chunks
-
-

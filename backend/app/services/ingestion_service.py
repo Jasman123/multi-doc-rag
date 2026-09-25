@@ -4,7 +4,7 @@ from chromadb import Collection
 
 from app.core.logging import get_logger
 from app.ports.embedder_port import EmbedderPort
-from app.retriever.vector_store import store_chunks
+from app.retriever.vector_store import delete_document_chunks, store_chunks
 from app.schemas.ingest import IngestResponse
 from app.utils.chunker import chunk_pages
 from app.utils.pdf_parser import parse_pdf
@@ -34,6 +34,7 @@ async def ingest_document(
             pages_processed=len(pages),
             message="PDF parsed but no text extracted. May be a scanned PDF.",
         )
+    delete_document_chunks(collection, document_id)
 
     chunks_stored = await store_chunks(
         chunks=chunks, collection=collection, embedder=embedder

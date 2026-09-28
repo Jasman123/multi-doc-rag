@@ -1,6 +1,5 @@
 """Integration tests for POST /api/v1/ingest/ and GET /api/v1/ingest/status."""
 import fitz  # PyMuPDF
-import pytest
 
 from app.api.dependencies import get_current_user
 

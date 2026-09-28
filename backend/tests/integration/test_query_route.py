@@ -1,5 +1,4 @@
 """Integration tests for POST /api/v1/query/."""
-import pytest
 
 from app.api.dependencies import get_current_user
 

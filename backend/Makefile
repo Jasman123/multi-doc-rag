@@ -1,6 +1,6 @@
-.PHONY: help install run run-prod test test-unit test-integration reset-db clean db-up db-down migrate makemigrations
+.PHONY: help install run run-prod test test-unit test-integration lint lint-fix reset-db clean db-up db-down migrate makemigrations
 
-VENV_BIN         := .venv/bin
+VENV_BIN         := venv/bin
 PYTHON           := $(VENV_BIN)/python
 PYTEST           := $(VENV_BIN)/pytest
 UVICORN          := $(VENV_BIN)/uvicorn
@@ -16,6 +16,8 @@ help:
 	@echo "  test             Run the full test suite"
 	@echo "  test-unit        Run unit tests only"
 	@echo "  test-integration Run integration tests only"
+	@echo "  lint             Check lint rules (ruff)"
+	@echo "  lint-fix         Auto-fix lint violations (ruff)"
 	@echo "  reset-db         Wipe ChromaDB storage (deletes all ingested documents)"
 	@echo "  clean            Remove caches (__pycache__, .pytest_cache)"
 	@echo "  db-up            Start the local Postgres container (docker compose)"
@@ -41,6 +43,12 @@ test-unit:
 
 test-integration:
 	$(PYTEST) tests/integration
+
+lint:
+	$(VENV_BIN)/ruff check .
+
+lint-fix:
+	$(VENV_BIN)/ruff check --fix .
 
 reset-db:
 	@echo "This will permanently delete all ingested documents in $(CHROMA_PERSIST_DIR)"

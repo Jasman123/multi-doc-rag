@@ -1,5 +1,4 @@
 """Unit tests for the text chunking logic."""
-import pytest
 
 from app.utils.chunker import TextChunk, chunk_pages
 from app.utils.pdf_parser import ParsedPage

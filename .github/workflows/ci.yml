@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # pip's 15s default read timeout is too short for PyPI under load and causes
+  # spurious CI failures; give installs more room before giving up.
+  PIP_DEFAULT_TIMEOUT: "100"
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

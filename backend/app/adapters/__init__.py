@@ -1,6 +1,4 @@
-from app.adapters.openai_llm import OpenAILLMAdapter
-from app.adapters.openai_embedder import OpenAIEmbedderAdapter
-from app.adapters.gemini_llm import GeminiLLMAdapter
-from app.adapters.gemini_embedder import GeminiEmbedderAdapter
+from app.adapters.openai_compatible_embedder import OpenAICompatibleEmbedderAdapter
+from app.adapters.openai_compatible_llm import OpenAICompatibleLLMAdapter
 
-__all__ = ["OpenAILLMAdapter", "OpenAIEmbedderAdapter", "GeminiLLMAdapter", "GeminiEmbedderAdapter"]
+__all__ = ["OpenAICompatibleLLMAdapter", "OpenAICompatibleEmbedderAdapter"]

@@ -88,6 +88,22 @@ def populated_collection():
 
 
 @pytest.fixture
+def two_doc_collection():
+    """In-memory collection with two documents of three chunks each."""
+    col = chromadb.EphemeralClient().create_collection(f"test_two_docs_{uuid.uuid4().hex[:8]}")
+    ids, texts, metas = [], [], []
+    for doc_id, filename in (("doc_aaa", "a.pdf"), ("doc_bbb", "b.pdf")):
+        for i in range(3):
+            ids.append(f"{doc_id}_chunk_{i}")
+            texts.append(f"{filename} chunk {i}")
+            metas.append({"document_id": doc_id, "filename": filename,
+                          "page_number": 1, "chunk_index": i})
+    col.upsert(ids=ids, embeddings=[[1.0, 0.0, 0.0, 0.0]] * len(ids),
+               documents=texts, metadatas=metas)
+    return col
+
+
+@pytest.fixture
 async def db_engine() -> AsyncGenerator[AsyncEngine, None]:
     """In-memory async SQLite DB, fresh schema per test.
 
@@ -172,3 +188,16 @@ def client_empty(fake_llm, fake_embedder, empty_collection, fake_admin, db_engin
 def client_populated(fake_llm, fake_embedder, populated_collection, fake_admin, db_engine) -> TestClient:
     """HTTP client wired to a pre-populated collection, authenticated as an admin."""
     return _build_client(fake_llm, fake_embedder, populated_collection, fake_admin, db_engine)
+
+
+@pytest.fixture
+def enable_sources(client_populated) -> None:
+    """Turn on the admin `show_sources` setting for client_populated."""
+    resp = client_populated.put("/api/v1/admin/settings", json={"show_sources": True})
+    assert resp.status_code == 200
+
+
+@pytest.fixture
+def client_two_docs(fake_llm, fake_embedder, two_doc_collection, fake_admin, db_engine) -> TestClient:
+    """HTTP client wired to a two-document collection, authenticated as an admin."""
+    return _build_client(fake_llm, fake_embedder, two_doc_collection, fake_admin, db_engine)

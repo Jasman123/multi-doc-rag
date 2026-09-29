@@ -666,6 +666,7 @@
     <div class="header-meta">
       <span class="demo-badge" id="demoBadge">DEMO MODE</span>
       <span id="userBadge" class="user-badge"></span>
+      <a id="documentsLink" href="documents.html" class="logout-btn" style="display:none; text-decoration:none">Documents</a>
       <a id="adminLink" href="admin.html" class="logout-btn" style="display:none; text-decoration:none">Admin</a>
       <button id="logoutBtn" class="logout-btn">Logout</button>
       <div class="status-dot" id="statusDot"></div>
@@ -825,6 +826,7 @@ async function loadCurrentUser() {
     document.getElementById('logoutBtn').classList.add('visible');
     if (currentUser.role === 'admin') {
       document.getElementById('adminLink').style.display = 'inline-block';
+      document.getElementById('documentsLink').style.display = 'inline-block';
     }
   } catch {}
 }
@@ -1023,7 +1025,7 @@ function renderDocList() {
     <div class="doc-item">
       <span class="doc-icon">📄</span>
       <div class="doc-info">
-        <div class="doc-name" title="${doc.filename}">${doc.filename}</div>
+        <div class="doc-name" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</div>
         <div class="doc-meta">${doc.chunks} chunks · ${doc.pages}p</div>
       </div>
       <span class="doc-status ready">ready</span>

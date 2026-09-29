@@ -4,7 +4,11 @@ from chromadb import Collection
 
 from app.core.logging import get_logger
 from app.ports.embedder_port import EmbedderPort
-from app.retriever.vector_store import delete_document_chunks, store_chunks
+from app.retriever.vector_store import (
+    delete_document_chunks,
+    get_document_filename,
+    store_chunks,
+)
 from app.schemas.ingest import IngestResponse
 from app.utils.chunker import chunk_pages
 from app.utils.pdf_parser import parse_pdf
@@ -20,6 +24,12 @@ async def ingest_document(
 ) -> IngestResponse:
     document_id = f"doc_{hashlib.sha256(file_bytes).hexdigest()[:12]}"
     logger.info(f"Starting ingestion | file='{filename}' | doc_id='{document_id}'")
+
+    uploaded_filename = filename
+    existing_filename = get_document_filename(collection, document_id)
+    if existing_filename:
+        # Re-upload of an already-indexed PDF: keep its current (possibly renamed) name.
+        filename = existing_filename
 
     pages = parse_pdf(file_bytes, filename)
 
@@ -51,5 +61,10 @@ async def ingest_document(
         filename=filename,
         chunk_created=chunks_stored,
         pages_processed=len(pages),
-        message=f"Successfully ingested '{filename}'.",
+        message=(
+            f"Successfully ingested '{uploaded_filename}'."
+            if filename == uploaded_filename
+            else f"Successfully ingested '{uploaded_filename}' "
+            f"(already indexed as '{filename}'; kept that name)."
+        ),
     )

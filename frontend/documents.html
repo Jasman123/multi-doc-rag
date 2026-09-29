@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documents — DocMind</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0c0d0f; --surface: #13151a; --surface-2: #1a1d24;
+    --border: #272b35; --border-light: #313642;
+    --accent: #c8f135; --accent-dim: #a8cc25; --accent-glow: rgba(200, 241, 53, 0.08);
+    --text: #e8eaf0; --text-muted: #7a8099; --text-dim: #4a5068;
+    --red: #ff5f5f; --radius: 10px; --radius-lg: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 40px 24px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'DM Serif Display', serif; font-size: 1.35rem; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  a.back { color: var(--text-muted); font-size: 0.8rem; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; }
+  .card h2 { font-family: 'DM Serif Display', serif; font-size: 1.15rem; margin-bottom: 4px; }
+  .card .sub { color: var(--text-dim); font-size: 0.78rem; margin-bottom: 20px; font-family: 'DM Mono', monospace; }
+  .denied { text-align: center; color: var(--text-muted); padding: 60px 20px; font-family: 'DM Mono', monospace; }
+  .toast { position: fixed; bottom: 28px; right: 28px; padding: 12px 20px; border-radius: var(--radius); font-size: 0.83rem; font-family: 'DM Mono', monospace; z-index: 999; max-width: 340px; }
+  .toast.success { background: rgba(200,241,53,0.15); border: 1px solid rgba(200,241,53,0.3); color: var(--accent); }
+  .toast.error { background: rgba(255,95,95,0.12); border: 1px solid rgba(255,95,95,0.25); color: var(--red); }
+  .doc-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .doc-row:last-child { border-bottom: none; }
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc-meta { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+  .rename-input { width: 100%; background: var(--surface-2); border: 1.5px solid var(--accent); border-radius: var(--radius); padding: 8px 12px; color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size: 0.9rem; outline: none; }
+  .row-btn { background: none; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 100px; padding: 5px 14px; font-size: 0.72rem; cursor: pointer; }
+  .row-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .row-btn.danger:hover { border-color: var(--red); color: var(--red); }
+  .empty { color: var(--text-dim); font-family: 'DM Mono', monospace; font-size: 0.8rem; padding: 24px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="top">
+    <div class="logo"><div class="logo-icon">⬡</div>Documents</div>
+    <a class="back" href="index.html">← Back to app</a>
+  </div>
+
+  <div class="card">
+    <h2>Indexed documents</h2>
+    <div class="sub" id="docCount">loading…</div>
+    <div id="docList"></div>
+    <div class="sub" style="margin-top:16px; margin-bottom:0">
+      A rename sticks if the same PDF is uploaded again. Deleting a document resets its name.
+    </div>
+  </div>
+</div>
+
+<div class="denied" id="denied" style="display:none">Admin privileges required to view this page.</div>
+
+<script>
+const API_BASE = `${window.location.origin}/api/v1`;
+const ACCESS_TOKEN_KEY = 'docmind_access_token';
+const REFRESH_TOKEN_KEY = 'docmind_refresh_token';
+
+function getAccessToken() { return localStorage.getItem(ACCESS_TOKEN_KEY); }
+function getRefreshToken() { return localStorage.getItem(REFRESH_TOKEN_KEY); }
+function setTokens(access, refresh) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+}
+function authHeaders(extra = {}) {
+  const token = getAccessToken();
+  return token ? { ...extra, 'Authorization': `Bearer ${token}` } : extra;
+}
+async function tryRefreshToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+async function apiFetch(url, options = {}) {
+  let res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (!refreshed) { window.location.href = 'login.html'; throw new Error('Session expired.'); }
+    res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  }
+  return res;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+let documents = [];
+
+async function loadDocuments() {
+  const res = await apiFetch(`${API_BASE}/documents/`);
+  if (!res.ok) { showToast('Failed to load documents', 'error'); return; }
+  documents = await res.json();
+  renderDocuments();
+}
+
+function renderDocuments() {
+  const list = document.getElementById('docList');
+  list.replaceChildren();
+  document.getElementById('docCount').textContent =
+    `${documents.length} document${documents.length === 1 ? '' : 's'}`;
+  if (documents.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'No documents indexed. Upload PDFs from the main page.';
+    list.appendChild(empty);
+    return;
+  }
+  documents.forEach(doc => list.appendChild(buildRow(doc)));
+}
+
+// textContent (not innerHTML) everywhere: filenames are user-supplied.
+function buildRow(doc) {
+  const row = document.createElement('div');
+  row.className = 'doc-row';
+
+  const info = document.createElement('div');
+  info.className = 'doc-info';
+  const name = document.createElement('div');
+  name.className = 'doc-name';
+  name.textContent = doc.filename;
+  name.title = doc.filename;
+  const meta = document.createElement('div');
+  meta.className = 'doc-meta';
+  meta.textContent = `${doc.document_id} · ${doc.chunk_count} chunks`;
+  info.append(name, meta);
+
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'row-btn';
+  renameBtn.textContent = 'Rename';
+  renameBtn.addEventListener('click', () => startRename(row, doc));
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'row-btn danger';
+  deleteBtn.textContent = 'Delete';
+  deleteBtn.addEventListener('click', () => deleteDocument(doc));
+
+  row.append(info, renameBtn, deleteBtn);
+  return row;
+}
+
+function startRename(row, doc) {
+  const nameEl = row.querySelector('.doc-name');
+  const input = document.createElement('input');
+  input.className = 'rename-input';
+  input.value = doc.filename;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') renameDocument(doc, input.value.trim());
+    if (e.key === 'Escape') renderDocuments();
+  });
+}
+
+function errorText(data, fallback) {
+  // 404 detail is a string; 422 detail is an array of objects
+  if (data && typeof data.detail === 'string') return data.detail;
+  if (data && Array.isArray(data.detail) && data.detail[0]?.msg) return data.detail[0].msg;
+  return fallback;
+}
+
+async function renameDocument(doc, filename) {
+  if (!filename || filename === doc.filename) { renderDocuments(); return; }
+  const res = await apiFetch(`${API_BASE}/documents/${encodeURIComponent(doc.document_id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) { showToast(errorText(data, 'Rename failed'), 'error'); return; }
+  showToast('Document renamed', 'success');
+  await loadDocuments();
+}
+
+async function deleteDocument(doc) {
+  const ok = confirm(
+    `Delete "${doc.filename}"?\n\nThis removes all ${doc.chunk_count} chunks and cannot be undone. ` +
+    `You would need to re-upload the PDF.`
+  );
+  if (!ok) return;
+  const res = await apiFetch(`${API_BASE}/documents/${encodeURIComponent(doc.document_id)}`, {
+    method: 'DELETE',
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) { showToast(errorText(data, 'Delete failed'), 'error'); return; }
+  showToast(`Deleted (${data.chunks_deleted} chunks)`, 'success');
+  await loadDocuments();
+}
+
+async function init() {
+  if (!getAccessToken()) { window.location.href = 'login.html'; return; }
+  const meRes = await apiFetch(`${API_BASE}/auth/me`);
+  if (!meRes.ok) { window.location.href = 'login.html'; return; }
+  const me = await meRes.json();
+  if (me.role !== 'admin') {
+    document.getElementById('denied').style.display = 'block';
+    return;
+  }
+  document.getElementById('app').style.display = 'flex';
+  await loadDocuments();
+}
+
+init();
+</script>
+</body>
+</html>

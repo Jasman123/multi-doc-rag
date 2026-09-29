@@ -148,3 +148,61 @@ def test_status_after_successful_ingest(client_empty):
         assert body["document_count"] >= 1
         assert body["total_chunks"] >= 1
         assert any(d["filename"] == "test.pdf" for d in body["documents"])
+
+
+def test_reupload_after_delete_restores_same_document_id(client_empty):
+    def _upload():
+        return client_empty.post(
+            "/api/v1/ingest/",
+            files=[("files", ("same.pdf", VALID_PDF, "application/pdf"))],
+        ).json()[0]["document_id"]
+
+    doc_id = _upload()
+    assert client_empty.delete(f"/api/v1/documents/{doc_id}").status_code == 200
+    assert client_empty.get("/api/v1/ingest/status").json()["document_count"] == 0
+    assert _upload() == doc_id
+
+
+# ── rename durability across re-upload ───────────────────────────────────────
+
+def _upload_as(client, name):
+    return client.post(
+        "/api/v1/ingest/",
+        files=[("files", (name, VALID_PDF, "application/pdf"))],
+    ).json()[0]
+
+
+def test_reupload_keeps_renamed_filename(client_empty):
+    first = _upload_as(client_empty, "orig.pdf")
+    doc_id = first["document_id"]
+    client_empty.patch(f"/api/v1/documents/{doc_id}", json={"filename": "Renamed.pdf"})
+
+    again = _upload_as(client_empty, "other-name.pdf")
+
+    assert again["document_id"] == doc_id
+    assert again["filename"] == "Renamed.pdf"
+    assert "other-name.pdf" in again["message"]
+    docs = client_empty.get("/api/v1/ingest/status").json()["documents"]
+    assert [d["filename"] for d in docs] == ["Renamed.pdf"]
+
+
+def test_reupload_after_delete_uses_new_filename(client_empty):
+    doc_id = _upload_as(client_empty, "orig.pdf")["document_id"]
+    client_empty.patch(f"/api/v1/documents/{doc_id}", json={"filename": "Renamed.pdf"})
+    client_empty.delete(f"/api/v1/documents/{doc_id}")
+
+    again = _upload_as(client_empty, "fresh.pdf")
+
+    assert again["filename"] == "fresh.pdf"
+
+
+# ── status endpoint authentication ───────────────────────────────────────────
+
+def test_status_without_token_returns_401(client_empty):
+    client_empty.app.dependency_overrides.pop(get_current_user)
+    assert client_empty.get("/api/v1/ingest/status").status_code == 401
+
+
+def test_status_as_regular_user_returns_200(client_empty, fake_user):
+    client_empty.app.dependency_overrides[get_current_user] = lambda: fake_user
+    assert client_empty.get("/api/v1/ingest/status").status_code == 200

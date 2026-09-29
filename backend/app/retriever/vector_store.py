@@ -46,6 +46,20 @@ async def store_chunks(
 def delete_document_chunks(collection: Collection, document_id: str) -> None:
     collection.delete(where={"document_id":document_id})
 
+def get_document_filename(collection: Collection, document_id: str) -> str | None:
+    found = collection.get(where={"document_id": document_id}, include=["metadatas"], limit=1)
+    metadatas = found["metadatas"]
+    return metadatas[0]["filename"] if metadatas else None
+
+def rename_document_chunks(collection: Collection, document_id: str, new_filename: str) -> int:
+    found = collection.get(where={"document_id": document_id}, include=["metadatas"])
+    ids = found["ids"]
+    if not ids:
+        return 0
+    metadatas = [{**meta, "filename": new_filename} for meta in found["metadatas"]]
+    collection.update(ids=ids, metadatas=metadatas)
+    return len(ids)
+
 
 async def vector_search(
     query_embeddings: list[list[float]],

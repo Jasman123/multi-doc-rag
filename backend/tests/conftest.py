@@ -2,8 +2,10 @@ import os
 import uuid
 from collections.abc import AsyncGenerator
 
+from cryptography.fernet import Fernet
+
 # Must be set before any app.* import so get_settings() doesn't fail.
-os.environ.setdefault("OPENAI_API_KEY", "test-key-sk-0000")
+os.environ.setdefault("ENCRYPTION_KEY", Fernet.generate_key().decode())
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/unused_in_tests")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 

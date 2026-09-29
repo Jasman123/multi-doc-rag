@@ -3,7 +3,6 @@ uvicorn[standard]==0.32.1
 python-multipart==0.0.12
 aiofiles>=23.0.0
 langchain==0.3.7
-langchain-openai==0.2.9
 langchain-core==0.3.63
 openai==1.54.4
 chromadb==0.5.20
@@ -24,6 +23,5 @@ email-validator==2.2.0
 aiosqlite==0.20.0
 langgraph==0.2.74
 langchain-text-splitters==0.3.2
-langchain-google-genai==2.0.4
-google-genai==1.0.0
+cryptography==50.0.1
 

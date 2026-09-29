@@ -1,11 +1,19 @@
 from functools import lru_cache
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Literal
 
 class Settings(BaseSettings):
-    openai_api_key: str 
+    llm_provider: Literal["openai", "gemini"] = "openai"
+    embedder_provider: Literal["openai", "gemini"] = "openai"
+    
+    openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4o-mini"
+
+    gemini_api_key: str | None = None
+    gemini_chat_model: str = "gemini-2.5-flash"
+    gemini_embedding_model: str = "gemini-embedding-001"
 
     chroma_persist_dir: str = "./storage/chroma"
     chroma_collection_name: str = "multi_doc_rag"

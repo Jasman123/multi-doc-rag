@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.openai_embedder import OpenAIEmbedderAdapter
 from app.adapters.openai_llm import OpenAILLMAdapter
+from app.adapters.gemini_embedder import GeminiEmbedderAdapter
+from app.adapters.gemini_llm import GeminiLLMAdapter
 from app.core.chromadb import get_chroma_collection
 from app.core.config import get_settings
 from app.core.database import get_sessionmaker
@@ -28,20 +30,32 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 @lru_cache
 def get_llm() -> LLMPort:
     settings = get_settings()
+    if settings.llm_provider == "gemini":
+        if not settings.gemini_api_key:
+            raise RuntimeError("LLM_PROVIDER=gemini requires GEMINI_API_KEY to be set")
+        logger.info("Initializing LLM adapter (Gemini)")
+        return GeminiLLMAdapter(api_key=settings.gemini_api_key, model=settings.gemini_chat_model)
+    if not settings.openai_api_key:
+        raise RuntimeError("LLM_PROVIDER=openai requires OPENAI_API_KEY to be set")
     logger.info("Initializing LLM adapter (OpenAI)")
-    return OpenAILLMAdapter(
-        api_key=settings.openai_api_key,
-        model=settings.openai_chat_model,
-    )
+    return OpenAILLMAdapter(api_key=settings.openai_api_key, model=settings.openai_chat_model)
 
 
 @lru_cache
 def get_embedder() -> EmbedderPort:
     settings = get_settings()
+    if settings.embedder_provider == "gemini":
+        if not settings.gemini_api_key:
+            raise RuntimeError("EMBEDDER_PROVIDER=gemini requires GEMINI_API_KEY to be set")
+        logger.info("Initializing Embedder adapter (Gemini)")
+        return GeminiEmbedderAdapter(
+            api_key=settings.gemini_api_key, model=settings.gemini_embedding_model
+        )
+    if not settings.openai_api_key:
+        raise RuntimeError("EMBEDDER_PROVIDER=openai requires OPENAI_API_KEY to be set")
     logger.info("Initializing Embedder adapter (OpenAI)")
     return OpenAIEmbedderAdapter(
-        api_key=settings.openai_api_key,
-        model=settings.openai_embedding_model,
+        api_key=settings.openai_api_key, model=settings.openai_embedding_model
     )
 
 

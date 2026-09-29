@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — DocMind</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0c0d0f; --surface: #13151a; --surface-2: #1a1d24;
+    --border: #272b35; --border-light: #313642;
+    --accent: #c8f135; --accent-dim: #a8cc25; --accent-glow: rgba(200, 241, 53, 0.08);
+    --text: #e8eaf0; --text-muted: #7a8099; --text-dim: #4a5068;
+    --red: #ff5f5f; --radius: 10px; --radius-lg: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 40px 24px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'DM Serif Display', serif; font-size: 1.35rem; }
+  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  a.back { color: var(--text-muted); font-size: 0.8rem; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; }
+  .card h2 { font-family: 'DM Serif Display', serif; font-size: 1.15rem; margin-bottom: 4px; }
+  .card .sub { color: var(--text-dim); font-size: 0.78rem; margin-bottom: 20px; font-family: 'DM Mono', monospace; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-family: 'DM Mono', monospace; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 6px; }
+  .field input, .field select { width: 100%; background: var(--surface-2); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 11px 14px; color: var(--text); font-family: 'Instrument Sans', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.18s ease; }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field .hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 6px; }
+  .key-row { display: flex; align-items: center; gap: 10px; }
+  .key-status { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--text-muted); }
+  .key-status.set { color: var(--accent); }
+  .key-toggle { background: none; border: 1px solid var(--border-light); color: var(--text-muted); border-radius: 100px; padding: 4px 12px; font-size: 0.7rem; cursor: pointer; }
+  .key-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .btn { padding: 11px 20px; border-radius: var(--radius); border: none; cursor: pointer; font-family: 'Instrument Sans', sans-serif; font-size: 0.87rem; font-weight: 600; background: var(--accent); color: #0c0d0f; transition: all 0.18s ease; }
+  .btn:hover { background: var(--accent-dim); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .denied { text-align: center; color: var(--text-muted); padding: 60px 20px; font-family: 'DM Mono', monospace; }
+  .toast { position: fixed; bottom: 28px; right: 28px; padding: 12px 20px; border-radius: var(--radius); font-size: 0.83rem; font-family: 'DM Mono', monospace; z-index: 999; max-width: 340px; }
+  .toast.success { background: rgba(200,241,53,0.15); border: 1px solid rgba(200,241,53,0.3); color: var(--accent); }
+  .toast.error { background: rgba(255,95,95,0.12); border: 1px solid rgba(255,95,95,0.25); color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app" style="display:none">
+  <div class="top">
+    <div class="logo"><div class="logo-icon">⬡</div>Admin</div>
+    <a class="back" href="index.html">← Back to app</a>
+  </div>
+
+  <form class="card" id="llmForm" data-role="llm">
+    <h2>LLM Provider</h2>
+    <div class="sub">Used for chat/completion in the RAG pipeline.</div>
+
+    <div class="field">
+      <label>Provider label</label>
+      <input name="provider_label" placeholder="openai / gemini / ollama / ..." required>
+    </div>
+    <div class="field">
+      <label>Base URL</label>
+      <input name="base_url" placeholder="Leave empty for OpenAI. e.g. https://generativelanguage.googleapis.com/v1beta/openai/ or http://localhost:11434/v1">
+    </div>
+    <div class="field">
+      <label>Model name</label>
+      <input name="model_name" placeholder="gpt-4o-mini / gemini-2.5-flash / llama3.1" required>
+    </div>
+    <div class="field">
+      <label>Temperature</label>
+      <input name="temperature" type="number" step="0.1" min="0" max="2" value="0">
+    </div>
+    <div class="field">
+      <label>API key</label>
+      <div class="key-row">
+        <span class="key-status" data-key-status>checking…</span>
+        <button type="button" class="key-toggle" data-key-toggle>Set / replace key</button>
+      </div>
+      <input name="api_key" type="password" placeholder="New API key (leave hidden = unchanged)" style="display:none; margin-top:10px" autocomplete="off">
+      <label style="display:none; margin-top:8px" data-clear-row>
+        <input type="checkbox" name="clear_api_key" style="width:auto; display:inline"> Clear stored key (for keyless local runtimes)
+      </label>
+    </div>
+    <button type="submit" class="btn">Save LLM config</button>
+  </form>
+
+  <form class="card" id="embedderForm" data-role="embedder">
+    <h2>Embedder Provider</h2>
+    <div class="sub">Used to embed chunks at ingest time and questions at query time.</div>
+
+    <div class="field">
+      <label>Provider label</label>
+      <input name="provider_label" placeholder="openai / gemini / ollama / ..." required>
+    </div>
+    <div class="field">
+      <label>Base URL</label>
+      <input name="base_url" placeholder="Leave empty for OpenAI">
+    </div>
+    <div class="field">
+      <label>Model name</label>
+      <input name="model_name" placeholder="text-embedding-3-small / gemini-embedding-001" required>
+    </div>
+    <div class="field">
+      <label>API key</label>
+      <div class="key-row">
+        <span class="key-status" data-key-status>checking…</span>
+        <button type="button" class="key-toggle" data-key-toggle>Set / replace key</button>
+      </div>
+      <input name="api_key" type="password" placeholder="New API key (leave hidden = unchanged)" style="display:none; margin-top:10px" autocomplete="off">
+      <label style="display:none; margin-top:8px" data-clear-row>
+        <input type="checkbox" name="clear_api_key" style="width:auto; display:inline"> Clear stored key (for keyless local runtimes)
+      </label>
+    </div>
+    <button type="submit" class="btn">Save embedder config</button>
+  </form>
+</div>
+
+<div class="denied" id="denied" style="display:none">Admin privileges required to view this page.</div>
+
+<script>
+const API_BASE = `${window.location.origin}/api/v1`;
+const ACCESS_TOKEN_KEY = 'docmind_access_token';
+const REFRESH_TOKEN_KEY = 'docmind_refresh_token';
+
+function getAccessToken() { return localStorage.getItem(ACCESS_TOKEN_KEY); }
+function getRefreshToken() { return localStorage.getItem(REFRESH_TOKEN_KEY); }
+function setTokens(access, refresh) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+}
+function authHeaders(extra = {}) {
+  const token = getAccessToken();
+  return token ? { ...extra, 'Authorization': `Bearer ${token}` } : extra;
+}
+async function tryRefreshToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setTokens(data.access_token, data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+async function apiFetch(url, options = {}) {
+  let res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  if (res.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (!refreshed) { window.location.href = 'login.html'; throw new Error('Session expired.'); }
+    res = await fetch(url, { ...options, headers: authHeaders(options.headers) });
+  }
+  return res;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function wireKeyToggle(form) {
+  const toggle = form.querySelector('[data-key-toggle]');
+  const input = form.querySelector('input[name="api_key"]');
+  const clearRow = form.querySelector('[data-clear-row]');
+  toggle.addEventListener('click', () => {
+    const showing = input.style.display !== 'none';
+    input.style.display = showing ? 'none' : 'block';
+    clearRow.style.display = showing ? 'none' : 'block';
+    input.value = '';
+    form.querySelector('input[name="clear_api_key"]').checked = false;
+  });
+}
+
+async function loadConfig(role, form) {
+  const res = await apiFetch(`${API_BASE}/admin/config/${role}`);
+  if (!res.ok) { showToast(`Failed to load ${role} config`, 'error'); return; }
+  const data = await res.json();
+  const status = form.querySelector('[data-key-status]');
+  if (!data) {
+    status.textContent = 'Not configured yet';
+    status.classList.remove('set');
+    return;
+  }
+  form.querySelector('input[name="provider_label"]').value = data.provider_label;
+  form.querySelector('input[name="base_url"]').value = data.base_url || '';
+  form.querySelector('input[name="model_name"]').value = data.model_name;
+  const tempField = form.querySelector('input[name="temperature"]');
+  if (tempField) tempField.value = data.temperature ?? 0;
+  status.textContent = data.api_key_set ? 'Key configured' : 'No key set';
+  status.classList.toggle('set', data.api_key_set);
+}
+
+async function saveConfig(role, form) {
+  const body = {
+    provider_label: form.querySelector('input[name="provider_label"]').value.trim(),
+    base_url: form.querySelector('input[name="base_url"]').value.trim() || null,
+    model_name: form.querySelector('input[name="model_name"]').value.trim(),
+  };
+  const tempField = form.querySelector('input[name="temperature"]');
+  if (tempField) body.temperature = parseFloat(tempField.value);
+
+  const apiKeyInput = form.querySelector('input[name="api_key"]');
+  const clearCheckbox = form.querySelector('input[name="clear_api_key"]');
+  if (apiKeyInput.style.display !== 'none') {
+    if (clearCheckbox.checked) body.clear_api_key = true;
+    else if (apiKeyInput.value) body.api_key = apiKeyInput.value;
+  }
+
+  const res = await apiFetch(`${API_BASE}/admin/config/${role}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) { showToast(data.detail || 'Save failed', 'error'); return; }
+  showToast(`${role === 'llm' ? 'LLM' : 'Embedder'} config saved`, 'success');
+  await loadConfig(role, form);
+  apiKeyInput.style.display = 'none';
+  form.querySelector('[data-clear-row]').style.display = 'none';
+}
+
+async function init() {
+  if (!getAccessToken()) { window.location.href = 'login.html'; return; }
+  const meRes = await apiFetch(`${API_BASE}/auth/me`);
+  if (!meRes.ok) { window.location.href = 'login.html'; return; }
+  const me = await meRes.json();
+  if (me.role !== 'admin') {
+    document.getElementById('denied').style.display = 'block';
+    return;
+  }
+  document.getElementById('app').style.display = 'flex';
+
+  const llmForm = document.getElementById('llmForm');
+  const embedderForm = document.getElementById('embedderForm');
+  wireKeyToggle(llmForm);
+  wireKeyToggle(embedderForm);
+
+  await loadConfig('llm', llmForm);
+  await loadConfig('embedder', embedderForm);
+
+  llmForm.addEventListener('submit', e => { e.preventDefault(); saveConfig('llm', llmForm); });
+  embedderForm.addEventListener('submit', e => { e.preventDefault(); saveConfig('embedder', embedderForm); });
+}
+
+init();
+</script>
+</body>
+</html>

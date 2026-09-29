@@ -666,6 +666,7 @@
     <div class="header-meta">
       <span class="demo-badge" id="demoBadge">DEMO MODE</span>
       <span id="userBadge" class="user-badge"></span>
+      <a id="adminLink" href="admin.html" class="logout-btn" style="display:none; text-decoration:none">Admin</a>
       <button id="logoutBtn" class="logout-btn">Logout</button>
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">connecting...</span>
@@ -822,6 +823,9 @@ async function loadCurrentUser() {
     badge.textContent = `${currentUser.email} · ${currentUser.role}`;
     badge.classList.add('visible');
     document.getElementById('logoutBtn').classList.add('visible');
+    if (currentUser.role === 'admin') {
+      document.getElementById('adminLink').style.display = 'inline-block';
+    }
   } catch {}
 }
 

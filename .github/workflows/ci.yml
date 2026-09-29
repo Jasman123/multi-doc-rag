@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature]
   push:
-    branches: [main]
+    branches: [main, feature]
 
 permissions:
   contents: read
@@ -72,8 +72,9 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/multi_doc_rag_auth
-      OPENAI_API_KEY: sk-ci-placeholder
       SECRET_KEY: ci-placeholder-secret-key
+      # Throwaway Fernet key, CI-only; protects no real data.
+      ENCRYPTION_KEY: RDbD3DoJNQWyjFh7EK_MOvvDIkILSOYQaX8QFAMlOaE=
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

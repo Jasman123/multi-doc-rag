@@ -3,10 +3,6 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    openai_api_key: str 
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
-
     chroma_persist_dir: str = "./storage/chroma"
     chroma_collection_name: str = "multi_doc_rag"
 
@@ -30,6 +26,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
+
+    # Fernet key protecting provider_configs.api_key_encrypted at rest.
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    encryption_key: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -24,3 +24,6 @@ email-validator==2.2.0
 aiosqlite==0.20.0
 langgraph==0.2.74
 langchain-text-splitters==0.3.2
+langchain-google-genai==2.0.4
+google-genai==1.0.0
+

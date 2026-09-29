@@ -1,5 +1,4 @@
 """Unit tests for BM25 search and Reciprocal Rank Fusion."""
-import pytest
 
 from app.retriever.hybrid import RRF_K, bm25_search, reciprocal_rank_fusion
 

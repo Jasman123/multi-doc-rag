@@ -7,8 +7,10 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ \
     && rm -rf /var/lib/apt/lists/*
 COPY backend/requirements.txt .
+# --default-timeout raised from pip's 15s default: too short for PyPI under
+# load and causes spurious build failures.
 RUN pip install --upgrade pip && \
-    pip install --prefix=/install --no-cache-dir -r requirements.txt
+    pip install --default-timeout=100 --prefix=/install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
 FROM python:3.11-slim AS runtime

@@ -1025,7 +1025,7 @@ function renderDocList() {
     <div class="doc-item">
       <span class="doc-icon">📄</span>
       <div class="doc-info">
-        <div class="doc-name" title="${doc.filename}">${doc.filename}</div>
+        <div class="doc-name" title="${escapeHtml(doc.filename)}">${escapeHtml(doc.filename)}</div>
         <div class="doc-meta">${doc.chunks} chunks · ${doc.pages}p</div>
       </div>
       <span class="doc-status ready">ready</span>

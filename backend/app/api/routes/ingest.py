@@ -1,12 +1,13 @@
 from chromadb import Collection
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from app.api.dependencies import get_collection, get_embedder, require_admin
+from app.api.dependencies import get_collection, get_current_user, get_embedder, require_admin
 from app.core.logging import get_logger
 from app.models.user import User
 from app.ports.embedder_port import EmbedderPort
 from app.schemas.ingest import IngestResponse
 from app.services.ingestion_service import ingest_document
+from app.services.document_service import list_documents
 
 logger = get_logger(__name__)
 
@@ -65,21 +66,12 @@ async def ingest_documents(
 
 
 @router.get("/status")
-async def collection_status(collection: Collection = Depends(get_collection)) -> dict:
+async def collection_status(
+    collection: Collection = Depends(get_collection),
+    _: User = Depends(get_current_user),
+) -> dict:
     count = collection.count()
-    docs_map: dict[str, dict] = {}
-    if count > 0:
-        results = collection.get(include=["metadatas"])
-        for meta in results["metadatas"]:
-            doc_id = meta["document_id"]
-            if doc_id not in docs_map:
-                docs_map[doc_id] = {
-                    "document_id": doc_id,
-                    "filename": meta["filename"],
-                    "chunk_count": 0,
-                }
-            docs_map[doc_id]["chunk_count"] += 1
-    doc_list = list(docs_map.values())
+    doc_list = [d.model_dump() for d in list_documents(collection)]
     return {
         "status": "ready",
         "total_chunks": count,

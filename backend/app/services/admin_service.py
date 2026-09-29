@@ -18,25 +18,12 @@ def _to_response(config: ProviderConfig) -> ProviderConfigResponse:
     )
 
 
-async def get_llm_config(db: AsyncSession) -> ProviderConfigResponse | None:
-    config = await get_config_by_role(db, ProviderRole.llm)
+async def get_config(db: AsyncSession, role: ProviderRole) -> ProviderConfigResponse | None:
+    config = await get_config_by_role(db, role)
     return _to_response(config) if config else None
 
 
-async def get_embedder_config(db: AsyncSession) -> ProviderConfigResponse | None:
-    config = await get_config_by_role(db, ProviderRole.embedder)
-    return _to_response(config) if config else None
-
-
-async def update_llm_config(db: AsyncSession, request: ProviderConfigUpdateRequest) -> ProviderConfigResponse:
-    return await _update_config(db, ProviderRole.llm, request)
-
-
-async def update_embedder_config(db: AsyncSession, request: ProviderConfigUpdateRequest) -> ProviderConfigResponse:
-    return await _update_config(db, ProviderRole.embedder, request)
-
-
-async def _update_config(
+async def update_config(
     db: AsyncSession, role: ProviderRole, request: ProviderConfigUpdateRequest
 ) -> ProviderConfigResponse:
     if request.api_key and request.clear_api_key:

@@ -3,6 +3,7 @@ from uuid import UUID
 
 import jwt
 from chromadb import Collection
+from cryptography.fernet import InvalidToken
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,33 +34,56 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     # NOT @lru_cache — must be a fresh session per request
 
 
-async def get_llm(db: AsyncSession = Depends(get_db_session)) -> LLMPort:
+def _decrypt_or_503(ciphertext: str | None) -> str | None:
+    if ciphertext is None:
+        return None
+    try:
+        return decrypt_secret(ciphertext)
+    except InvalidToken:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Stored provider API key could not be decrypted (ENCRYPTION_KEY may "
+                "have changed). An admin must reconfigure it at /admin.html."
+            ),
+        )
+
+
+async def get_llm(db: AsyncSession = Depends(get_db_session)) -> AsyncGenerator[LLMPort, None]:
     config = await get_config_by_role(db, ProviderRole.llm)
     if config is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="LLM provider not configured. An admin must set it up at /admin.html.",
         )
-    api_key = decrypt_secret(config.api_key_encrypted) if config.api_key_encrypted else None
+    api_key = _decrypt_or_503(config.api_key_encrypted)
     logger.info(f"Initializing LLM adapter ({config.provider_label})")
-    return OpenAICompatibleLLMAdapter(
+    adapter = OpenAICompatibleLLMAdapter(
         api_key=api_key,
         model=config.model_name,
         base_url=config.base_url,
         temperature=config.temperature if config.temperature is not None else 0,
     )
+    try:
+        yield adapter
+    finally:
+        await adapter.aclose()
 
 
-async def get_embedder(db: AsyncSession = Depends(get_db_session)) -> EmbedderPort:
+async def get_embedder(db: AsyncSession = Depends(get_db_session)) -> AsyncGenerator[EmbedderPort, None]:
     config = await get_config_by_role(db, ProviderRole.embedder)
     if config is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Embedder provider not configured. An admin must set it up at /admin.html.",
         )
-    api_key = decrypt_secret(config.api_key_encrypted) if config.api_key_encrypted else None
+    api_key = _decrypt_or_503(config.api_key_encrypted)
     logger.info(f"Initializing Embedder adapter ({config.provider_label})")
-    return OpenAICompatibleEmbedderAdapter(api_key=api_key, model=config.model_name, base_url=config.base_url)
+    adapter = OpenAICompatibleEmbedderAdapter(api_key=api_key, model=config.model_name, base_url=config.base_url)
+    try:
+        yield adapter
+    finally:
+        await adapter.aclose()
 
 
 def get_collection() -> Collection:

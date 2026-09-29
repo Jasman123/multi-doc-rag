@@ -18,3 +18,6 @@ class OpenAICompatibleEmbedderAdapter(EmbedderPort):
             all_embeddings.extend(item.embedding for item in response.data)
 
         return all_embeddings
+
+    async def aclose(self) -> None:
+        await self._client.close()

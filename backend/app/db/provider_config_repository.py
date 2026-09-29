@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.provider_config import ProviderRole, ProviderConfig
@@ -27,13 +28,23 @@ async def upsert_config(db: AsyncSession,
             api_key_encrypted=api_key_encrypted if update_api_key else None,
         )
         db.add(config)
-    else:
-        config.provider_label = provider_label
-        config.base_url = base_url
-        config.model_name = model_name
-        config.temperature = temperature
-        if update_api_key:
-            config.api_key_encrypted = api_key_encrypted
+        try:
+            await db.commit()
+            await db.refresh(config)
+            return config
+        except IntegrityError:
+            # Lost a race with a concurrent first-time insert for this role
+            # (unique constraint on `role`) — fall through and update the row
+            # the other request just created instead of failing the request.
+            await db.rollback()
+            config = await get_config_by_role(db, role)
+
+    config.provider_label = provider_label
+    config.base_url = base_url
+    config.model_name = model_name
+    config.temperature = temperature
+    if update_api_key:
+        config.api_key_encrypted = api_key_encrypted
 
     await db.commit()
     await db.refresh(config)

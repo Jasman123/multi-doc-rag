@@ -19,3 +19,6 @@ class OpenAICompatibleLLMAdapter(LLMPort):
             temperature=self._temperature,
         )
         return response.choices[0].message.content or ""
+
+    async def aclose(self) -> None:
+        await self._client.close()

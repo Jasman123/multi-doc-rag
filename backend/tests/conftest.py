@@ -191,6 +191,13 @@ def client_populated(fake_llm, fake_embedder, populated_collection, fake_admin, 
 
 
 @pytest.fixture
+def enable_sources(client_populated) -> None:
+    """Turn on the admin `show_sources` setting for client_populated."""
+    resp = client_populated.put("/api/v1/admin/settings", json={"show_sources": True})
+    assert resp.status_code == 200
+
+
+@pytest.fixture
 def client_two_docs(fake_llm, fake_embedder, two_doc_collection, fake_admin, db_engine) -> TestClient:
     """HTTP client wired to a two-document collection, authenticated as an admin."""
     return _build_client(fake_llm, fake_embedder, two_doc_collection, fake_admin, db_engine)

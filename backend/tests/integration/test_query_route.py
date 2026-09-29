@@ -126,7 +126,7 @@ def test_query_question_echoed_in_response(client_populated):
     assert resp.json()["question"] == question
 
 
-def test_query_sources_have_required_fields(client_populated):
+def test_query_sources_have_required_fields(client_populated, enable_sources):
     resp = client_populated.post(
         "/api/v1/query/",
         json={"question": "Tell me about the content."},
@@ -136,7 +136,7 @@ def test_query_sources_have_required_fields(client_populated):
             assert field in source, f"Source missing field: {field}"
 
 
-def test_query_sources_snippet_is_truncated(client_populated):
+def test_query_sources_snippet_is_truncated(client_populated, enable_sources):
     resp = client_populated.post(
         "/api/v1/query/",
         json={"question": "Tell me about the content."},
@@ -171,3 +171,30 @@ def test_query_with_matching_document_filter_returns_success(client_populated):
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
+
+
+# ── show_sources setting ──────────────────────────────────────────────────────
+
+def test_query_sources_hidden_by_default(client_populated):
+    resp = client_populated.post("/api/v1/query/", json={"question": "What is the capital of France?"})
+    assert resp.status_code == 200
+    assert resp.json()["sources"] == []
+
+
+def test_query_sources_returned_when_enabled(client_populated, enable_sources):
+    resp = client_populated.post("/api/v1/query/", json={"question": "What is the capital of France?"})
+    assert len(resp.json()["sources"]) >= 1
+
+
+def test_settings_default_false_and_toggle(client_populated):
+    assert client_populated.get("/api/v1/admin/settings").json() == {"show_sources": False}
+    client_populated.put("/api/v1/admin/settings", json={"show_sources": True})
+    assert client_populated.get("/api/v1/admin/settings").json() == {"show_sources": True}
+    client_populated.put("/api/v1/admin/settings", json={"show_sources": False})
+    assert client_populated.get("/api/v1/admin/settings").json() == {"show_sources": False}
+
+
+def test_settings_forbidden_for_non_admin(client_populated, fake_user):
+    client_populated.app.dependency_overrides[get_current_user] = lambda: fake_user
+    assert client_populated.get("/api/v1/admin/settings").status_code == 403
+    assert client_populated.put("/api/v1/admin/settings", json={"show_sources": True}).status_code == 403

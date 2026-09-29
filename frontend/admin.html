@@ -120,6 +120,15 @@
     </div>
     <button type="submit" class="btn">Save embedder config</button>
   </form>
+
+  <div class="card">
+    <h2>Answer Sources</h2>
+    <div class="sub">Show retrieved source chunks under each answer. Hidden by default; applies to all users.</div>
+    <div class="key-row">
+      <span class="key-status" id="sourcesStatus"></span>
+      <button type="button" class="btn" id="sourcesToggle"></button>
+    </div>
+  </div>
 </div>
 
 <div class="denied" id="denied" style="display:none">Admin privileges required to view this page.</div>
@@ -248,6 +257,31 @@ async function init() {
 
   await loadConfig('llm', llmForm);
   await loadConfig('embedder', embedderForm);
+
+  const sourcesStatus = document.getElementById('sourcesStatus');
+  const sourcesToggle = document.getElementById('sourcesToggle');
+  let showSources = false;
+  function renderSourcesToggle() {
+    sourcesStatus.textContent = showSources ? 'Sources shown' : 'Sources hidden';
+    sourcesStatus.classList.toggle('set', showSources);
+    sourcesToggle.textContent = showSources ? 'Hide sources' : 'Show sources';
+  }
+  async function loadSettings() {
+    const res = await apiFetch(`${API_BASE}/admin/settings`);
+    if (!res.ok) { showToast('Failed to load settings', 'error'); return; }
+    showSources = (await res.json()).show_sources;
+    renderSourcesToggle();
+  }
+  sourcesToggle.addEventListener('click', async () => {
+    const res = await apiFetch(`${API_BASE}/admin/settings`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ show_sources: !showSources }),
+    });
+    if (!res.ok) { showToast('Failed to update setting', 'error'); return; }
+    showSources = (await res.json()).show_sources;
+    renderSourcesToggle();
+  });
+  await loadSettings();
 
   llmForm.addEventListener('submit', e => { e.preventDefault(); saveConfig('llm', llmForm); });
   embedderForm.addEventListener('submit', e => { e.preventDefault(); saveConfig('embedder', embedderForm); });

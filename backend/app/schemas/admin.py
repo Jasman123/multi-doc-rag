@@ -22,3 +22,11 @@ class ProviderConfigUpdateRequest(BaseModel):
     temperature: float | None = None
     api_key: str | None = None
     clear_api_key: bool = False
+
+
+class AppSettingsResponse(BaseModel):
+    show_sources: bool
+
+
+class AppSettingsUpdateRequest(BaseModel):
+    show_sources: bool

@@ -1,0 +1,76 @@
+# Production stack for a single VPS (e.g. Biznet Gio NEO): Caddy (HTTPS) -> app -> Postgres.
+# Run from the repo root:
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env up -d --build
+#
+# Only Caddy publishes ports; Postgres and the app stay on the internal network.
+
+x-app-build: &app-build
+  context: ..
+  dockerfile: backend/Dockerfile
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: multi_doc_rag_auth
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d multi_doc_rag_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: mirrors railway.toml's preDeployCommand. The app only starts once this succeeds.
+  migrate:
+    build: *app-build
+    image: multi-doc-rag:latest
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    environment: &app-env
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi_doc_rag_auth
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in deploy/.env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in deploy/.env}
+      CHROMA_PERSIST_DIR: /app/backend/storage/chroma
+      DEBUG: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    image: multi-doc-rag:latest
+    restart: unless-stopped
+    environment: *app-env
+    expose:
+      - "8000"
+    volumes:
+      # Chroma vector store. Losing this means re-ingesting every document.
+      - chroma_data:/app/backend/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persists issued certificates; losing it can trip Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pg_data:
+  chroma_data:
+  caddy_data:
+  caddy_config:

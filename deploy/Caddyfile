@@ -1,0 +1,11 @@
+# {$DOMAIN} comes from the caddy service environment (deploy/.env).
+# Caddy obtains and renews the Let's Encrypt certificate automatically once the
+# domain's DNS A record points at this server and ports 80/443 are open.
+{$DOMAIN} {
+	encode gzip
+	# PDF uploads: allow bodies up to 50 MB (adjust to your largest document).
+	request_body {
+		max_size 50MB
+	}
+	reverse_proxy app:8000
+}

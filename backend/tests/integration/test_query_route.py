@@ -93,6 +93,8 @@ def test_query_response_schema(client_populated):
     for field in ("status", "question", "answer", "sources",
                   "model_used", "total_chunks_searched"):
         assert field in body, f"Missing field: {field}"
+    assert body["format"] == "text"
+    assert body["content"] is None
 
 
 def test_query_status_is_success(client_populated):

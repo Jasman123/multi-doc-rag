@@ -12,6 +12,7 @@ from app.services.rag_graph.prompts import (
     GRADE_PROMPT,
     REWRITE_PROMPT,
 )
+from app.services.rag_graph.answer_format import parse_structured_answer
 from app.services.rag_graph.state import RAGState
 
 logger = get_logger(__name__)
@@ -142,8 +143,16 @@ class RAGNodes:
             {"role": "system", "content": GENERATE_SYSTEM_PROMPT.format(context=context)},
             {"role": "user", "content": state["question"]},
         ]
-        answer = await self.llm.chat(messages)
-        return {"answer": answer, "status": "success", "final_chunks": candidates}
+        raw = await self.llm.chat(messages)
+        answer_format, content, answer = parse_structured_answer(raw)
+        logger.info(f"generate | format={answer_format}")
+        return {
+            "answer": answer,
+            "answer_format": answer_format,
+            "answer_content": content,
+            "status": "success",
+            "final_chunks": candidates,
+        }
 
     async def no_results(self, state: RAGState) -> dict:
         return {

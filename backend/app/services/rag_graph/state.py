@@ -1,4 +1,5 @@
 from typing import Literal, TypedDict
+from app.schemas.query import AnswerContent
 
 
 class RAGState(TypedDict, total=False):
@@ -25,5 +26,7 @@ class RAGState(TypedDict, total=False):
 
     # set by generate / no_results
     answer: str
+    answer_format: Literal["text", "paragraph", "steps"]
+    answer_content: AnswerContent | None
     status: Literal["success", "failed"]
     final_chunks: list[dict]

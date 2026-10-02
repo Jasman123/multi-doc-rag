@@ -59,6 +59,8 @@ async def answer_query(
         status="success",
         question=request.question,
         answer=final_state["answer"],
+        format=final_state.get("answer_format", "text"),
+        content=final_state.get("answer_content"),
         sources=sources,
         model_used=llm.model_name,
         total_chunks_searched=collection.count(),

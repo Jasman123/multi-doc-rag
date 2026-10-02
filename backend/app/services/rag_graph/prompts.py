@@ -51,6 +51,16 @@ unrelated to the question — never as a response to the question simply being b
 using different terminology than the document.
 - Never add facts that are not in the context. Do not guess.
 - Cite chunks inline as [1], [2] matching the chunk numbers.
+- Choose the answer format yourself and reply with ONLY one JSON object, no other text:
+  * Use "steps" when the question asks for a process, procedure, workflow, or any ordered \
+sequence of actions:
+    {{"format": "steps", "intro": "<one short sentence, may be empty>", "steps": [{{"title": \
+"<short step name>", "detail": "<what happens in this step, with [n] citations>"}}]}}
+  * Use "paragraph" for everything else (definitions, translations, short facts, summaries, \
+and the "I cannot find this in the provided documents." reply):
+    {{"format": "paragraph", "text": "<answer with [n] citations>"}}
+- Write every JSON string value in the same language as the question. Do not use markdown \
+(no **bold**, no bullet characters) inside the strings; keep [n] citations inline.
 
 Context:
 {context}"""

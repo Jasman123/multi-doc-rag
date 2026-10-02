@@ -468,6 +468,64 @@
     padding: 0 4px;
   }
 
+  /* Structured answers */
+  .answer-text { white-space: pre-line; }
+  .answer-text + .answer-steps, .answer-intro + .answer-steps { margin-top: 12px; }
+
+  .answer-steps {
+    list-style: none;
+    counter-reset: step;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .answer-steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    column-gap: 12px;
+    align-items: start;
+  }
+
+  .answer-steps li::before {
+    content: counter(step);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+
+  .step-title { font-weight: 600; color: var(--text); }
+  .step-detail { color: var(--text-muted); margin-top: 2px; }
+
+  .cite {
+    display: inline-block;
+    margin: 0 1px;
+    padding: 0 5px;
+    border-radius: 8px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    line-height: 1.5;
+    vertical-align: baseline;
+  }
+  .cite[data-target] { cursor: pointer; }
+  .cite[data-target]:hover { background: var(--accent); color: #0c0d0f; }
+
+  .citation-card.highlight { border-left-color: var(--accent); background: var(--surface-2); box-shadow: 0 0 0 1px var(--accent-dim); }
+
   /* Citations */
   .citations {
     display: flex;
@@ -1111,15 +1169,61 @@ function appendMessage(role, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+let answerSeq = 0;
+
+// Escape first, then add the only markup we allow: **bold** and [n] citation chips.
+// [n] maps to the n-th source (same order the backend numbers context chunks).
+function renderInline(text, msgId, sourceCount) {
+  return escapeHtml(text ?? '')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[(\d{1,2})\]/g, (m, n) => {
+      const idx = Number(n);
+      return idx >= 1 && idx <= sourceCount
+        ? `<sup class="cite" data-target="${msgId}-src-${idx}" title="Show source ${idx}">${idx}</sup>`
+        : m;
+    });
+}
+
+function renderAnswerBody(data, msgId, sourceCount) {
+  const inline = t => renderInline(t, msgId, sourceCount);
+  const content = data.content;
+
+  if (data.format === 'steps' && content && Array.isArray(content.steps) && content.steps.length) {
+    const intro = content.intro ? `<div class="answer-text answer-intro">${inline(content.intro)}</div>` : '';
+    const items = content.steps.map(s => `<li><div><div class="step-title">${inline(s.title)}</div>${
+      s.detail ? `<div class="step-detail">${inline(s.detail)}</div>` : ''}</div></li>`).join('');
+    return `${intro}<ol class="answer-steps">${items}</ol>`;
+  }
+
+  if (data.format === 'paragraph' && content && content.text) {
+    return `<div class="answer-text">${inline(content.text)}</div>`;
+  }
+
+  // "text" format, demo mode, or any older/unknown shape
+  return `<div class="answer-text">${inline(data.answer)}</div>`;
+}
+
+messagesEl.addEventListener('click', e => {
+  const chip = e.target.closest('.cite[data-target]');
+  if (!chip) return;
+  const card = document.getElementById(chip.dataset.target);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  card.classList.add('highlight');
+  setTimeout(() => card.classList.remove('highlight'), 1600);
+});
+
 function appendAnswer(data) {
   const div = document.createElement('div');
   div.className = 'message assistant';
+  const msgId = `ans-${++answerSeq}`;
+  const sourceCount = data.sources ? data.sources.length : 0;
 
   const sourcesHtml = data.sources && data.sources.length > 0 ? `
     <div class="citations">
       <div class="citations-header">📎 ${data.sources.length} source${data.sources.length > 1 ? 's' : ''} · ${data.model_used || ''}</div>
-      ${data.sources.map(s => `
-        <div class="citation-card">
+      ${data.sources.map((s, i) => `
+        <div class="citation-card" id="${msgId}-src-${i + 1}">
           <div class="citation-meta">
             <span class="citation-file">${escapeHtml(s.filename)}</span>
             <span class="citation-page">p.${s.page}</span>
@@ -1133,7 +1237,7 @@ function appendAnswer(data) {
 
   div.innerHTML = `
     <span class="msg-label">DocMind</span>
-    <div class="msg-bubble">${escapeHtml(data.answer)}</div>
+    <div class="msg-bubble">${renderAnswerBody(data, msgId, sourceCount)}</div>
     ${sourcesHtml}
   `;
   messagesEl.appendChild(div);

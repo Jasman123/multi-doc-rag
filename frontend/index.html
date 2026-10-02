@@ -147,14 +147,14 @@
       el('div', { class: 'bubble', text }));
   }
 
-  function sourcesBlock(sources) {
+  function sourcesBlock(sources, msgId) {
     if (!sources || sources.length === 0) return null; // hidden by admin setting → render nothing
     return el('details', { class: 'sources' },
       el('summary', { html: `<span>Sources (${sources.length})</span>${icon('chevron')}` }),
-      ...sources.map((s) => {
+      ...sources.map((s, i) => {
         const long = s.snippet.length > 240;
         const snippet = el('div', { class: `source-snippet${long ? ' clamp' : ''}`, text: s.snippet });
-        const card = el('div', { class: 'source' },
+        const card = el('div', { class: 'source', id: `${msgId}-src-${i + 1}` },
           el('div', { class: 'source-meta' },
             el('span', { class: 'source-file', text: s.filename }),
             el('span', { class: 'source-page', text: `p.${s.page}` }),
@@ -175,7 +175,36 @@
       }));
   }
 
+  let answerSeq = 0;
+
+  // The backend picks the answer format: "steps" (ordered process), "paragraph", or plain "text".
+  // Anything missing/unknown falls back to the flattened `answer` string. [n] markers become chips
+  // linking to the n-th source; they are dropped when the admin hides sources.
+  function answerBody(data, msgId) {
+    const cite = { msgId, sourceCount: data.sources ? data.sources.length : 0, cite: true };
+    const c = data.content;
+    if (data.format === 'steps' && c && Array.isArray(c.steps) && c.steps.length) {
+      return (c.intro ? `<p class="intro">${DocMind.renderInline(c.intro, cite)}</p>` : '') +
+        `<ol class="steps">${c.steps.map((s) => `<li><div><div class="step-title">${DocMind.renderInline(s.title, cite)}</div>${
+          s.detail ? `<div class="step-detail">${DocMind.renderInline(s.detail, cite)}</div>` : ''}</div></li>`).join('')}</ol>`;
+    }
+    if (data.format === 'paragraph' && c && c.text) return renderMarkdown(c.text, cite);
+    return renderMarkdown(data.answer, cite);
+  }
+
+  thread.addEventListener('click', (e) => {
+    const chip = e.target.closest('.cite[data-target]');
+    if (!chip) return;
+    const card = document.getElementById(chip.dataset.target);
+    if (!card) return;
+    card.closest('details')?.setAttribute('open', '');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    card.classList.add('highlight');
+    setTimeout(() => card.classList.remove('highlight'), 1600);
+  });
+
   function answerMessage(data) {
+    const msgId = `ans-${++answerSeq}`;
     const copyBtn = el('button', { class: 'btn btn-ghost btn-sm', type: 'button', html: `${icon('copy')}<span>Copy</span>` });
     copyBtn.addEventListener('click', async () => {
       try {
@@ -186,10 +215,10 @@
     });
     return el('div', { class: 'message assistant' },
       el('div', { class: 'who label-caps', text: 'DocMind' }),
-      el('div', { class: 'answer', html: renderMarkdown(data.answer) }),
+      el('div', { class: 'answer', html: answerBody(data, msgId) }),
       el('div', { class: 'msg-actions' }, copyBtn,
         data.model_used ? el('span', { class: 'mono muted', text: data.model_used }) : null),
-      sourcesBlock(data.sources));
+      sourcesBlock(data.sources, msgId));
   }
 
   function errorMessage(text, retry) {

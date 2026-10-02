@@ -70,10 +70,27 @@
 
   // ─── Safe Markdown subset ─────────────────────────────────────────────────
   // Escapes everything first, then adds a fixed set of tags — model/document text can never inject HTML.
-  function renderMarkdown(src) {
+  // opts.msgId + opts.sourceCount turn [n] markers into chips that point at source cards
+  // `${msgId}-src-${n}`; with sourceCount 0 (sources hidden) the markers are dropped.
+  function formatInline(escaped, opts = {}) {
+    const { msgId, sourceCount = 0, cite = false } = opts;
+    let s = escaped.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    if (cite) {
+      s = s.replace(/(\s?)\[(\d{1,2})\]/g, (m, space, n) => {
+        const idx = Number(n);
+        if (!sourceCount) return '';
+        return idx >= 1 && idx <= sourceCount
+          ? `${space}<button type="button" class="cite" data-target="${msgId}-src-${idx}" aria-label="Show source ${idx}">${idx}</button>`
+          : m;
+      });
+    }
+    return s;
+  }
+  const renderInline = (raw, opts) => formatInline(escapeHtml(String(raw ?? '')), opts);
+
+  function renderMarkdown(src, opts = {}) {
     const lines = escapeHtml(String(src).replace(/\r\n/g, '\n')).split('\n');
-    const inline = (s) =>
-      s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    const inline = (s) => formatInline(s, opts);
     const out = [];
     let para = [];
     let list = null; // { tag, items }
@@ -369,7 +386,7 @@
   }
 
   window.DocMind = {
-    API_BASE, api, apiFetch, json, errorText, escapeHtml, renderMarkdown, icon, el,
+    API_BASE, api, apiFetch, json, errorText, escapeHtml, renderMarkdown, renderInline, icon, el,
     getAccessToken, setTokens, clearTokens, redirectToLogin,
     checkHealth, toast, confirmDialog, bindPopover, mountShell, requireUser, renderFatal, setTheme, isDark,
   };

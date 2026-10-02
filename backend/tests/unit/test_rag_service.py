@@ -1,4 +1,6 @@
 """Unit tests for the RAG service (answer_query + _build_context)."""
+import json
+
 import chromadb
 import pytest
 
@@ -177,3 +179,32 @@ async def test_answer_query_document_id_filter(fake_llm, fake_embedder):
     resp = await answer_query(request=req, collection=col,
                               embedder=fake_embedder, llm=fake_llm)
     assert resp.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_answer_query_structured_steps(fake_llm, fake_embedder):
+    # FakeLLM returns this for every call; analyze/grade fail open on the unexpected shape.
+    fake_llm._answer = json.dumps({
+        "format": "steps",
+        "intro": "Alur:",
+        "steps": [{"title": "Surface Treatment", "detail": "Cleaning [1]"}, {"title": "Core Test"}],
+    })
+    col = _col_with_chunks("structured_steps_test")
+    req = QueryRequest(question="What is the process?")
+    resp = await answer_query(request=req, collection=col,
+                              embedder=fake_embedder, llm=fake_llm)
+    assert resp.status == "success"
+    assert resp.format == "steps"
+    assert [s.title for s in resp.content.steps] == ["Surface Treatment", "Core Test"]
+    assert resp.answer == "Alur:\n1. Surface Treatment: Cleaning [1]\n2. Core Test"
+
+
+@pytest.mark.asyncio
+async def test_answer_query_plain_text_falls_back(fake_llm, fake_embedder):
+    col = _col_with_chunks("plain_text_fallback_test")
+    req = QueryRequest(question="What is in the document?")
+    resp = await answer_query(request=req, collection=col,
+                              embedder=fake_embedder, llm=fake_llm)
+    assert resp.format == "text"
+    assert resp.content is None
+    assert resp.answer == fake_llm._answer

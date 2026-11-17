@@ -38,7 +38,7 @@ Test the second SSH session as `deploy` before closing the root one.
 ## 4. Get the code and configure
 
 ```bash
-git clone https://github.com/Jasman123/multi-doc-rag.git && cd multi-doc-rag   # check out the branch you want
+git clone -b staging https://github.com/Jasman123/multi-doc-rag.git && cd multi-doc-rag
 cp deploy/.env.example deploy/.env
 nano deploy/.env        # fill DOMAIN, POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY
 chmod 600 deploy/.env
@@ -65,7 +65,7 @@ docker compose -f deploy/docker-compose.prod.yml exec postgres \
   psql -U postgres -d multi_doc_rag_auth -c "UPDATE users SET role = 'admin' WHERE email = 'you@example.com';"
 ```
 
-Confirm the table/enum names in `backend/app/models/user.py` first. Then log in and add provider keys at `/admin.html`.
+The table (`users`) and role value (`admin`) match `backend/app/models/user.py`. Then log in and add provider keys at `/admin.html`.
 Registration is open to anyone, and anyone who registers can query your documents using your provider keys. Consider restricting it before going public.
 
 ## 7. Update / redeploy

@@ -14,7 +14,7 @@ is gitignored) — read it before changing the look.
 ## Files
 
 - `assets/app.css` — tokens (light + dark), base, shell, components. **All styling goes here**; pages have no inline `<style>`.
-- `assets/theme-init.js` — loaded synchronously in `<head>` to set `data-theme` before paint (`localStorage` key `docmind_theme`).
+- `assets/theme-init.js` — loaded synchronously in `<head>` to set `data-theme` before paint (`localStorage` key `docmind_theme`). Light is the default and the OS colour-scheme is **not** followed; dark is opt-in via the account menu toggle.
 - `assets/app.js` — global `DocMind`: `requireUser`, `mountShell`, `api`/`apiFetch` (bearer + one refresh on 401), `toast`, `confirmDialog`, `renderMarkdown` (escape-first safe subset), `icon(name)`, `el(tag, props, ...children)`.
 - `assets/fonts/` — self-hosted Inter and JetBrains Mono (OFL licences included). No external font/CDN requests.
 

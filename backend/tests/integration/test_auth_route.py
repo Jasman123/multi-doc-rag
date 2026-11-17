@@ -3,18 +3,35 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_db_session
+from app.core.config import get_settings
 from app.db.user_repository import create_user
 from app.main import create_app
 from app.models.user import UserRole
 from tests.conftest import override_db_session
 
+INVITE_CODE = "demo-invite-code"
+
+
+def _client(db_engine, registration_code: str | None) -> TestClient:
+    app = create_app()
+    app.dependency_overrides[get_db_session] = override_db_session(db_engine)
+    # Pin the code so results never depend on a developer's local backend/.env.
+    settings = get_settings().model_copy(update={"registration_code": registration_code})
+    app.dependency_overrides[get_settings] = lambda: settings
+    return TestClient(app, raise_server_exceptions=True)
+
 
 @pytest.fixture
 def auth_client(db_engine) -> TestClient:
-    """Client with only the DB overridden — login/tokens/get_current_user run for real."""
-    app = create_app()
-    app.dependency_overrides[get_db_session] = override_db_session(db_engine)
-    return TestClient(app, raise_server_exceptions=True)
+    """Client with only the DB overridden — login/tokens/get_current_user run for real.
+    Registration is open (no invitation code)."""
+    return _client(db_engine, None)
+
+
+@pytest.fixture
+def locked_client(db_engine) -> TestClient:
+    """Same, but the server requires INVITE_CODE to register."""
+    return _client(db_engine, INVITE_CODE)
 
 
 # ── register ─────────────────────────────────────────────────────────────────
@@ -39,6 +56,94 @@ def test_register_duplicate_email_returns_409(auth_client):
 def test_register_short_password_returns_422(auth_client):
     resp = auth_client.post("/api/v1/auth/register", json={"email": "x@example.com", "password": "short"})
     assert resp.status_code == 422
+
+
+# ── registration lock (REGISTRATION_CODE) ────────────────────────────────────
+
+def test_registration_info_open_when_no_code_configured(auth_client):
+    resp = auth_client.get("/api/v1/auth/registration")
+    assert resp.status_code == 200
+    assert resp.json() == {"code_required": False}
+
+
+def test_registration_info_reports_code_required(locked_client):
+    resp = locked_client.get("/api/v1/auth/registration")
+    assert resp.status_code == 200
+    assert resp.json() == {"code_required": True}
+
+
+def test_registration_info_never_leaks_the_code(locked_client):
+    assert INVITE_CODE not in locked_client.get("/api/v1/auth/registration").text
+
+
+def test_open_registration_ignores_a_supplied_code(auth_client):
+    resp = auth_client.post(
+        "/api/v1/auth/register",
+        json={"email": "open@example.com", "password": "secret123", "registration_code": "whatever"},
+    )
+    assert resp.status_code == 201
+
+
+def test_locked_register_without_code_returns_403(locked_client):
+    resp = locked_client.post("/api/v1/auth/register", json={"email": "a@example.com", "password": "secret123"})
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "Invalid registration code."
+
+
+def test_locked_register_with_wrong_code_returns_403(locked_client):
+    resp = locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "b@example.com", "password": "secret123", "registration_code": "nope"},
+    )
+    assert resp.status_code == 403
+
+
+def test_locked_register_with_correct_code_returns_201(locked_client):
+    resp = locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "c@example.com", "password": "secret123", "registration_code": INVITE_CODE},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["email"] == "c@example.com"
+
+
+def test_locked_register_tolerates_surrounding_whitespace_in_code(locked_client):
+    resp = locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "ws@example.com", "password": "secret123", "registration_code": f"  {INVITE_CODE}\n"},
+    )
+    assert resp.status_code == 201
+
+
+def test_locked_register_with_wrong_code_does_not_create_the_account(locked_client):
+    locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "ghost@example.com", "password": "secret123", "registration_code": "nope"},
+    )
+    login = locked_client.post("/api/v1/auth/login", json={"email": "ghost@example.com", "password": "secret123"})
+    assert login.status_code == 401
+
+
+def test_locked_wrong_code_returns_403_even_for_existing_email(locked_client):
+    """The code gate runs before the duplicate check, so it can't be used to probe emails."""
+    locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "taken@example.com", "password": "secret123", "registration_code": INVITE_CODE},
+    )
+    resp = locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "taken@example.com", "password": "secret123", "registration_code": "nope"},
+    )
+    assert resp.status_code == 403
+
+
+def test_locked_login_does_not_require_the_code(locked_client):
+    locked_client.post(
+        "/api/v1/auth/register",
+        json={"email": "member@example.com", "password": "secret123", "registration_code": INVITE_CODE},
+    )
+    resp = locked_client.post("/api/v1/auth/login", json={"email": "member@example.com", "password": "secret123"})
+    assert resp.status_code == 200
 
 
 # ── login ────────────────────────────────────────────────────────────────────

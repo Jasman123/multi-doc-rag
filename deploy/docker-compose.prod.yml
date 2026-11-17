@@ -34,6 +34,9 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/multi_doc_rag_auth
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in deploy/.env}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in deploy/.env}
+      # Invitation code required to create an account. Mandatory here so a public VPS
+      # never ships with open sign-up (anyone could then query documents on your API keys).
+      REGISTRATION_CODE: ${REGISTRATION_CODE:?set REGISTRATION_CODE in deploy/.env}
       CHROMA_PERSIST_DIR: /app/backend/storage/chroma
       DEBUG: "false"
     depends_on:

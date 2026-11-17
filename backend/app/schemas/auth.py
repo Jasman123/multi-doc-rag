@@ -8,6 +8,11 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserCreateRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    # Only checked when the server has REGISTRATION_CODE configured.
+    registration_code: str | None = Field(default=None, max_length=128)
+
+class RegistrationInfoResponse(BaseModel):
+    code_required: bool
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

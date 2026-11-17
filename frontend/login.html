@@ -30,10 +30,17 @@
   const submit = el('button', { class: 'btn btn-primary btn-block', type: 'submit', style: 'margin-top:.5rem', text: 'Sign in' });
   password.setAttribute('aria-describedby', 'pwHint');
 
+  // Invitation code: only shown on the "Create account" tab, and only if the server requires one
+  // (REGISTRATION_CODE). Assume required until /auth/registration says otherwise; the server enforces it anyway.
+  let codeRequired = true;
+  const code = el('input', { class: 'input', id: 'regcode', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', maxlength: '128' });
+  const codeField = el('div', { class: 'field', hidden: true }, el('label', { for: 'regcode', text: 'Invitation code' }), code);
+
   const form = el('form', { id: 'authPanel', role: 'tabpanel', 'aria-labelledby': 'tabLogin', novalidate: true },
     error,
     el('div', { class: 'field' }, el('label', { for: 'email', text: 'Email' }), email),
     el('div', { class: 'field' }, el('label', { for: 'password', text: 'Password' }), password, hint),
+    codeField,
     submit);
 
   function showError(msg) {
@@ -52,8 +59,16 @@
     submit.textContent = login ? 'Sign in' : 'Create account';
     password.autocomplete = login ? 'current-password' : 'new-password';
     hint.hidden = login;
+    codeField.hidden = login || !codeRequired;
     error.hidden = true;
   }
+
+  fetch(`${API_BASE}/auth/registration`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((info) => {
+      if (info && info.code_required === false) { codeRequired = false; codeField.hidden = true; }
+    })
+    .catch(() => { /* keep the field: the server still enforces the code */ });
   tabLogin.addEventListener('click', () => setMode('login'));
   tabRegister.addEventListener('click', () => setMode('register'));
   [tabLogin, tabRegister].forEach((t) => t.addEventListener('keydown', (e) => {
@@ -70,12 +85,13 @@
     if (!mail || !email.checkValidity()) { showError('Enter a valid email address.'); email.focus(); return; }
     if (mode === 'register' && password.value.length < 8) { showError('Password must be at least 8 characters.'); password.focus(); return; }
     if (!password.value) { showError('Enter your password.'); password.focus(); return; }
+    if (mode === 'register' && codeRequired && !code.value.trim()) { showError('Enter your invitation code.'); code.focus(); return; }
 
     submit.disabled = true;
     submit.textContent = mode === 'login' ? 'Signing in…' : 'Creating account…';
     try {
       if (mode === 'register') {
-        const reg = await fetch(`${API_BASE}/auth/register`, { ...json('POST', { email: mail, password: password.value }) });
+        const reg = await fetch(`${API_BASE}/auth/register`, { ...json('POST', { email: mail, password: password.value, registration_code: code.value.trim() || undefined }) });
         const regData = await reg.json().catch(() => null);
         if (!reg.ok) throw new Error(errorText(regData, 'Registration failed.'));
       }

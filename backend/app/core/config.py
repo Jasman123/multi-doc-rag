@@ -31,11 +31,25 @@ class Settings(BaseSettings):
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     encryption_key: str
 
+    # When set, POST /auth/register requires this invitation code. Unset/empty keeps
+    # registration open (local dev default). The VPS stack makes it mandatory.
+    registration_code: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
+
+    @field_validator("registration_code")
+    @classmethod
+    def _blank_registration_code_means_open(cls, v: str | None) -> str | None:
+        # `REGISTRATION_CODE=` in an env file arrives as "" — treat it (and
+        # whitespace-only values) as "not set" rather than as a code to match.
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
     @field_validator("database_url")
     @classmethod

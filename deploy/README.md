@@ -40,7 +40,7 @@ Test the second SSH session as `deploy` before closing the root one.
 ```bash
 git clone -b staging https://github.com/Jasman123/multi-doc-rag.git && cd multi-doc-rag
 cp deploy/.env.example deploy/.env
-nano deploy/.env        # fill DOMAIN, POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY
+nano deploy/.env        # fill DOMAIN, POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY, REGISTRATION_CODE
 chmod 600 deploy/.env
 ```
 
@@ -58,7 +58,7 @@ Then open `https://your-domain/health` (expect `{"status":"ok"}`) and `/login.ht
 
 ## 6. First admin
 
-Register an account in the UI, then promote it:
+Open `/login.html` → **Create account**, enter your email, a password and the `REGISTRATION_CODE` from `deploy/.env`, then promote the account:
 
 ```bash
 docker compose -f deploy/docker-compose.prod.yml exec postgres \
@@ -66,7 +66,9 @@ docker compose -f deploy/docker-compose.prod.yml exec postgres \
 ```
 
 The table (`users`) and role value (`admin`) match `backend/app/models/user.py`. Then log in and add provider keys at `/admin.html`.
-Registration is open to anyone, and anyone who registers can query your documents using your provider keys. Consider restricting it before going public.
+Sign-up requires the `REGISTRATION_CODE`, so only people you give the code to can create accounts — and every account can
+query your documents using your provider keys. To close sign-up again, change `REGISTRATION_CODE` in `deploy/.env` and
+redeploy (existing accounts keep working). Treat the code like a password: send it privately, not in a public channel.
 
 ## 7. Update / redeploy
 
